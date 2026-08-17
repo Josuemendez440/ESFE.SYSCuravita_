@@ -1,0 +1,716 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curavita - Gestión de Expedientes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100%;
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+            width: 0px;
+            background: transparent;
+        }
+
+        :root {
+            --primary: #195366;
+            --primary-dark: #123e4d;
+            --primary-light: #e3ecef;
+            --bg-main: #f0f4f6;
+            --white: #ffffff;
+            --border: #d0dcde;
+            --text-main: #1f2d3d;
+            --text-muted: #5e7e88;
+            --sidebar-bg: #0b1a20;
+            --danger: #d94e4e;
+            --danger-light: #fcebeb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
+            padding: 32px 24px;
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            z-index: 100;
+        }
+
+        .sidebar-brand {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+        }
+
+            .sidebar-brand svg {
+                width: 26px;
+                height: 26px;
+                color: #4caf50;
+            }
+
+        .sidebar-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .menu-item a {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: #9cb1b8;
+            text-decoration: none;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+            .menu-item a:hover {
+                color: var(--white);
+                background: rgba(255, 255, 255, 0.05);
+            }
+
+        .menu-item.active a {
+            color: var(--white);
+            background: var(--primary);
+        }
+
+        .menu-item svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid rgba(209, 222, 226, 0.1);
+            padding-top: 16px;
+        }
+
+        .btn-logout {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #7a8b90;
+            text-decoration: none;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            background: transparent;
+            border: none;
+            width: 100%;
+            cursor: pointer;
+            text-align: left;
+        }
+
+            .btn-logout svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .btn-logout:hover {
+                background: rgba(217, 78, 78, 0.1);
+                color: #e66a6a;
+            }
+
+        .main-workspace {
+            flex-grow: 1;
+            margin-left: 280px;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+            .main-workspace::-webkit-scrollbar {
+                display: none;
+            }
+
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 32px;
+            max-width: 1300px;
+            width: 100%;
+            height: fit-content;
+        }
+
+        .card-panel {
+            background: var(--white);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 28px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+            height: fit-content;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 14px;
+        }
+
+            .panel-header svg {
+                color: var(--primary);
+                width: 22px;
+                height: 22px;
+            }
+
+        .panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+            .form-group label {
+                display: block;
+                font-size: 11px;
+                font-weight: 700;
+                margin-bottom: 6px;
+                color: var(--text-main);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            background: #fafcfc;
+            color: var(--text-main);
+            transition: all 0.2s ease;
+        }
+
+            .form-control:focus {
+                border-color: var(--primary);
+                background: var(--white);
+                box-shadow: 0 0 0 3px rgba(25, 83, 102, 0.12);
+            }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(25, 83, 102, 0.18);
+            transition: background 0.2s;
+        }
+
+            .btn-submit:hover {
+                background: var(--primary-dark);
+            }
+
+            .btn-submit svg {
+                width: 16px;
+                height: 16px;
+            }
+
+        .search-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+            .search-table th {
+                padding: 12px 14px;
+                background: var(--primary-light);
+                color: var(--primary);
+                font-weight: 700;
+                border-bottom: 2px solid var(--border);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .search-table td {
+                padding: 16px 14px;
+                border-bottom: 1px solid var(--border);
+                color: var(--text-main);
+                vertical-align: middle;
+            }
+
+            .search-table tr:hover {
+                background-color: #f7fafb;
+            }
+
+        .btn-action {
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 8px 14px;
+            border: 1px solid rgba(25, 83, 102, 0.2);
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+            .btn-action:hover {
+                background: var(--primary);
+                color: var(--white);
+                box-shadow: 0 2px 6px rgba(25, 83, 102, 0.2);
+            }
+
+            .btn-action svg {
+                width: 14px;
+                height: 14px;
+            }
+
+        .patient-selected-banner {
+            display: none;
+            background: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            color: var(--accent-green);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 26, 32, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-card {
+            background: var(--white);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            padding: 28px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .modal-icon {
+            width: 48px;
+            height: 48px;
+            background: #fee2e2;
+            color: #dc2626;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+            .modal-icon svg {
+                width: 24px;
+                height: 24px;
+            }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .modal-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-modal-cancel {
+            flex: 1;
+            padding: 10px;
+            background: #f3f4f6;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .btn-modal-confirm {
+            flex: 1;
+            padding: 10px;
+            background: #dc2626;
+            color: var(--white);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 950px) {
+            .workspace-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .main-workspace {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+            </svg>
+            <span>Curavita</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li id="menuExpedientes" class="menu-item active">
+                <a href="#" onclick="navegar('nav_expedientes')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Gestión de Expedientes
+                </a>
+            </li>
+            <li id="menuConsulta" class="menu-item">
+                <a href="#" onclick="navegar('nav_consulta')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4.8 2.3A.3.3 0 1 0 5 2h-.2ZM17 21a2 2 0 0 0 4-4v-3h-4v7ZM3 10h4V3H3v7ZM12 21a5 5 0 0 0 5-5v-3H7v3a5 5 0 0 0 5 5Z" />
+                    </svg>
+                    Consulta Médica
+                </a>
+            </li>
+            <li id="menuPago" class="menu-item">
+                <a href="#" onclick="navegar('nav_pago')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                        <line x1="12" y1="4" x2="12" y2="20"></line>
+                    </svg>
+                    Módulo de Pago
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <button class="btn-logout" onclick="openLogoutModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Cerrar Sesión
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-workspace">
+        <div class="workspace-grid">
+
+            <section class="card-panel">
+                <div class="panel-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <h2 class="panel-title">Crear Expediente</h2>
+                </div>
+
+                <form id="createForm" onsubmit="handleCreate(event)">
+                    <div class="form-group">
+                        <label>Nombres</label>
+                        <input type="text" id="inputNombres" class="form-control" placeholder="Ej. Juan Carlos" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Apellidos</label>
+                        <input type="text" id="inputApellidos" class="form-control" placeholder="Ej. Mendoza Castro" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Documento de Identidad (DUI)</label>
+                        <input type="text" id="inputDUI" class="form-control" placeholder="00000000-0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono de Contacto</label>
+                        <input type="text" class="form-control" placeholder="7788-9900" required>
+                    </div>
+                    <button type="submit" class="btn-submit">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Guardar Nuevo Expediente
+                    </button>
+                </form>
+            </section>
+
+            <section class="card-panel">
+                <div class="panel-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <h2 class="panel-title">Búsqueda de Pacientes Existentes</h2>
+                </div>
+
+                <div id="selectionBanner" class="patient-selected-banner">
+                    <span id="selectedPatientText">Paciente seleccionado: Ninguno</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label>Buscar por Nombre o Documento de Identidad</label>
+                    <input type="text" id="searchInput" onkeyup="filterTable()" class="form-control" placeholder="Escriba para filtrar... (Ej. Mendoza, 0123...)">
+                </div>
+
+                <table class="search-table" id="patientsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 110px;">Código</th>
+                            <th>Nombre del Paciente</th>
+                            <th style="width: 140px;">Documento (DUI)</th>
+                            <th style="text-align: right; width: 130px;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b style="color: var(--primary);">PAC-0042</b></td>
+                            <td><b>Juan Carlos Mendoza</b></td>
+                            <td style="color: var(--text-muted);">01234567-8</td>
+                            <td style="text-align: right;">
+                                <button class="btn-action" onclick="selectPatient('PAC-0042', 'Juan Carlos Mendoza')">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    Seleccionar
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b style="color: var(--primary);">PAC-0108</b></td>
+                            <td><b>María Elena Gómez</b></td>
+                            <td style="color: var(--text-muted);">09876543-2</td>
+                            <td style="text-align: right;">
+                                <button class="btn-action" onclick="selectPatient('PAC-0108', 'María Elena Gómez')">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    Seleccionar
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+        </div>
+    </main>
+
+    <div id="logoutModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </div>
+            <h3 class="modal-title">¿Cerrar Sesión?</h3>
+            <p class="modal-desc">¿Estás seguro de que deseas salir del sistema Curavita?</p>
+            <div class="modal-actions">
+                <button class="btn-modal-cancel" onclick="closeLogoutModal()">Cancelar</button>
+                <button class="btn-modal-confirm" onclick="confirmLogout()">Sí, Cerrar Sesión</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Al cargar la página, recuperar y aplicar el rol guardado
+        document.addEventListener('DOMContentLoaded', () => {
+            const rolGuardado = localStorage.getItem('usuarioRol');
+            if (rolGuardado) {
+                aplicarPermisos(rolGuardado);
+            }
+        });
+
+        // 2. Función que llama C# desde el Login
+        function establecerUsuario(rol) {
+            localStorage.setItem('usuarioRol', rol);
+            aplicarPermisos(rol);
+        }
+
+        function navegar(accion) {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(accion);
+            }
+        }
+
+        function openLogoutModal() {
+            document.getElementById('logoutModal').style.display = 'flex';
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutModal').style.display = 'none';
+        }
+
+        function confirmLogout() {
+            localStorage.removeItem('usuarioRol'); // Limpia la sesión
+            navegar('cerrarSesion');
+        }
+
+        function filterTable() {
+            const input = document.getElementById('searchInput').value.toLowerCase();
+            const table = document.getElementById('patientsTable');
+            const trs = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < trs.length; i++) {
+                const rowText = trs[i].textContent.toLowerCase();
+                trs[i].style.display = rowText.includes(input) ? '' : 'none';
+            }
+        }
+
+        function selectPatient(code, name) {
+            const banner = document.getElementById('selectionBanner');
+            const text = document.getElementById('selectedPatientText');
+
+            text.textContent = `Paciente activo: ${code} - ${name}`;
+            banner.style.display = 'flex';
+        }
+
+        function handleCreate(e) {
+            e.preventDefault();
+            const nombres = document.getElementById('inputNombres').value;
+            const apellidos = document.getElementById('inputApellidos').value;
+            const dui = document.getElementById('inputDUI').value;
+
+            const table = document.getElementById('patientsTable').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+
+            const newCode = `PAC-0${Math.floor(100 + Math.random() * 900)}`;
+
+            newRow.innerHTML = `
+                <td><b style="color: var(--primary);">${newCode}</b></td>
+                <td><b>${nombres} ${apellidos}</b></td>
+                <td style="color: var(--text-muted);">${dui}</td>
+                <td style="text-align: right;">
+                    <button class="btn-action" onclick="selectPatient('${newCode}', '${nombres} ${apellidos}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        Seleccionar
+                    </button>
+                </td>
+            `;
+
+            alert(`Expediente creado correctamente para: ${nombres} ${apellidos}`);
+            document.getElementById('createForm').reset();
+        }
+
+        function aplicarPermisos(rol) {
+            const menuExpedientes = document.getElementById('menuExpedientes');
+            const menuConsulta = document.getElementById('menuConsulta');
+            const menuPago = document.getElementById('menuPago');
+
+            // Resetear visibilidad por defecto
+            if (menuExpedientes) menuExpedientes.style.display = '';
+            if (menuConsulta) menuConsulta.style.display = '';
+            if (menuPago) menuPago.style.display = '';
+
+            const rolNorm = (rol || '').toLowerCase().trim();
+
+            // Admin: Mantiene todos los accesos
+            if (rolNorm === 'admin' || rolNorm === 'administrador') {
+                return;
+            }
+
+            // Restricción por Roles
+            if (rolNorm === 'doctor' || rolNorm === 'medico') {
+                if (menuExpedientes) menuExpedientes.style.display = 'none';
+                if (menuPago) menuPago.style.display = 'none';
+            }
+            else if (rolNorm === 'expedientes' || rolNorm === 'recepcion' || rolNorm.includes('recepcion')) {
+                if (menuConsulta) menuConsulta.style.display = 'none';
+                if (menuPago) menuPago.style.display = 'none';
+            }
+            else if (rolNorm === 'caja') {
+                if (menuExpedientes) menuExpedientes.style.display = 'none';
+                if (menuConsulta) menuConsulta.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

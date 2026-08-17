@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ESFE.SYSCURAVITA-DAL/ESFE.SYSCURAVITA.DAL.csproj" />
+  <Project Path="ESFE.SYSCURAVITA.EN/ESFE.SYSCURAVITA.EN.csproj" />
+  <Project Path="ESFE.SYSCURAVITA.LN/ESFE.SYSCURAVITA.LN.csproj" />
+  <Project Path="ESFE.SYSCURAVITA.UI/ESFE.SYSCURAVITA.UI.csproj" />
+</Solution>
