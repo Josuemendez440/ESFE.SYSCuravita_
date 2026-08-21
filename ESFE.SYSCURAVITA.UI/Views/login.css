@@ -1,0 +1,199 @@
+﻿:root {
+    --primary-green: #1c909b;
+    --primary-dark: #277c95;
+    --bg-light: #eef5f7;
+    --card-celeste: #f2f9fa;
+    --white: #FFFFFF;
+    --border-color: #b2cfd6;
+    --text-muted: #5a7b85;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+}
+
+html, body {
+    width: 100%;
+    height: 100vh;
+    background-color: var(--bg-light);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    user-select: none;
+}
+
+input::-ms-reveal,
+input::-ms-clear,
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+.login-card {
+    width: 380px;
+    background: var(--card-celeste);
+    padding: 22px 24px 18px 24px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(39, 124, 149, 0.12);
+    border: 1px solid rgba(178, 207, 214, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.logo-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.login-logo {
+    max-width: 95px;
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+h2 {
+    color: var(--primary-dark);
+    font-size: 15px;
+    margin-bottom: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-align: center;
+    width: 100%;
+}
+
+.form-group {
+    width: 100%;
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+    .form-group label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--primary-dark);
+        font-weight: 600;
+        font-size: 11.5px;
+    }
+
+.input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.form-control {
+    width: 100%;
+    height: 38px;
+    padding: 8px 36px 8px 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--white);
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: #2c3e50;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+    .form-control:focus {
+        border-color: var(--primary-green);
+        box-shadow: 0 0 0 3px rgba(28, 144, 155, 0.15);
+    }
+
+.pass-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    padding: 2px;
+    z-index: 10;
+}
+
+    .pass-toggle:hover {
+        color: var(--primary-green);
+    }
+
+.options-bar {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    margin-top: 4px;
+    margin-bottom: 18px;
+    color: var(--text-muted);
+}
+
+    .options-bar label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .options-bar input[type="checkbox"] {
+        accent-color: var(--primary-green);
+    }
+
+    .options-bar a {
+        color: var(--primary-dark);
+        text-decoration: none;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+        .options-bar a:hover {
+            color: var(--primary-green);
+            text-decoration: underline;
+        }
+
+.btn-login {
+    width: 100%;
+    height: 40px;
+    background: var(--primary-dark);
+    color: var(--white);
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(39, 124, 149, 0.2);
+}
+
+    .btn-login:hover {
+        background: var(--primary-green);
+        box-shadow: 0 4px 12px rgba(28, 144, 155, 0.3);
+    }
+
+.footer-links {
+    width: 100%;
+    margin-top: 16px;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.3;
+}
