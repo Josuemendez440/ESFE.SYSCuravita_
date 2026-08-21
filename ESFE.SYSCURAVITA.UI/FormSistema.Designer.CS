@@ -30,26 +30,26 @@
         {
             webView21 = new Microsoft.Web.WebView2.WinForms.WebView2();
             ((System.ComponentModel.ISupportInitialize)webView21).BeginInit();
-            this.SuspendLayout();
+            SuspendLayout();
             // 
             // webView21
             // 
             webView21.AllowExternalDrop = true;
             webView21.CreationProperties = null;
-            webView21.DefaultBackgroundColor = Color.White;
-            webView21.Dock = DockStyle.Fill;
-            webView21.Location = new Point(0, 0);
+            webView21.DefaultBackgroundColor = System.Drawing.Color.White;
+            webView21.Dock = System.Windows.Forms.DockStyle.Fill;
+            webView21.Location = new System.Drawing.Point(0, 0);
             webView21.Name = "webView21";
-            webView21.Size = new Size(800, 450);
+            webView21.Size = new System.Drawing.Size(800, 450);
             webView21.TabIndex = 0;
             webView21.ZoomFactor = 1D;
-            webView21.Click += this.webView21_Click;
+            webView21.Click += webView21_Click;
             // 
             // FormSistema
             // 
-            AutoScaleDimensions = new SizeF(10F, 25F);
-            AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
+            AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            ClientSize = new System.Drawing.Size(800, 450);
             Controls.Add(webView21);
             Name = "FormSistema";
             Text = "FormSistema";
