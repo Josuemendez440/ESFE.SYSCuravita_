@@ -2,6 +2,7 @@
 using ESFE.SYSCURAVITA.LN;
 using Microsoft.Web.WebView2.Core;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Forms;
@@ -13,6 +14,9 @@ namespace ESFE.SYSCURAVITA.UI
         private readonly AccesosEN _usuario;
         private readonly PacienteLN _pacienteLN = new PacienteLN();
         private bool _esCierreDeSesion = false;
+
+        // Almacenamiento temporal en memoria para consultas activas
+        private static readonly List<ConsultaEN> _listaConsultasTemp = new List<ConsultaEN>();
 
         public FormSistema()
         {
@@ -33,11 +37,9 @@ namespace ESFE.SYSCURAVITA.UI
 
             await webView21.EnsureCoreWebView2Async(null);
 
-            // Ajustes de interfaz del motor WebView2
             webView21.CoreWebView2.Settings.IsStatusBarEnabled = false;
             webView21.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
 
-            // Escuchar peticiones enviadas desde JavaScript vía window.chrome.webview.postMessage
             webView21.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
 
             string vistaInicial = !string.IsNullOrEmpty(_usuario.VistaHtml)
@@ -64,11 +66,9 @@ namespace ESFE.SYSCURAVITA.UI
         {
             if (!e.IsSuccess || _usuario == null) return;
 
-            // 1. Inyectar permisos según el rol del usuario autenticado
             string scriptPermisos = $"if (typeof aplicarPermisos === 'function') {{ aplicarPermisos('{_usuario.Rol}'); }}";
             await webView21.ExecuteScriptAsync(scriptPermisos);
 
-            // 2. Cargar datos iniciales automáticamente según la vista activa
             if (webView21.Source.AbsolutePath.EndsWith("expedientes.html", StringComparison.OrdinalIgnoreCase))
             {
                 await CargarTablaPacientesAsync();
@@ -85,7 +85,6 @@ namespace ESFE.SYSCURAVITA.UI
             {
                 string mensaje = e.TryGetWebMessageAsString();
 
-                // 1. Manejo de Rutas y Comandos Simples
                 switch (mensaje)
                 {
                     case "cerrarSesion":
@@ -110,14 +109,12 @@ namespace ESFE.SYSCURAVITA.UI
                         return;
                 }
 
-                // 2. Procesar objetos JSON (Guardado de Expediente, Petición de Pacientes y Guardado de Consulta)
                 if (mensaje.StartsWith("{"))
                 {
                     using (JsonDocument doc = JsonDocument.Parse(mensaje))
                     {
                         var root = doc.RootElement;
 
-                        // Extraer acción enviada desde JS (maneja mayúsculas o minúsculas)
                         string accion = "";
                         if (root.TryGetProperty("accion", out var aMin)) accion = aMin.GetString();
                         else if (root.TryGetProperty("Accion", out var aMay)) accion = aMay.GetString();
@@ -149,22 +146,49 @@ namespace ESFE.SYSCURAVITA.UI
                         }
                         else if (accion == "GUARDAR_CONSULTA")
                         {
-                            int pacienteId = root.GetProperty("PacienteId").GetInt32();
-                            string diagnostico = root.GetProperty("Diagnostico").GetString();
+                            int pacienteId = 0;
+                            if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
+                            else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
 
-                            // Recorrer la lista de medicamentos recibida
-                            if (root.TryGetProperty("Receta", out var recetaArray))
+                            string diagnostico = "";
+                            if (root.TryGetProperty("Diagnostico", out var d)) diagnostico = d.GetString();
+                            else if (root.TryGetProperty("diagnostico", out var dMin)) diagnostico = dMin.GetString();
+
+                            _listaConsultasTemp.Add(new ConsultaEN
                             {
-                                foreach (var item in recetaArray.EnumerateArray())
-                                {
-                                    string medicamento = item.GetProperty("Medicamento").GetString();
-                                    string indicacion = item.GetProperty("Indicacion").GetString();
-
-                                    // Invocar tus métodos LN para guardar cada medicamento de la receta
-                                }
-                            }
+                                PacienteId = pacienteId,
+                                Diagnostico = string.IsNullOrWhiteSpace(diagnostico) ? "Sin diagnóstico especificado" : diagnostico,
+                                Fecha = DateTime.Now.ToString("dd/MM/yyyy"),
+                                Hora = DateTime.Now.ToString("hh:mm tt"),
+                                Observaciones = "Consulta procesada correctamente."
+                            });
 
                             MessageBox.Show("Consulta procesada y guardada correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else if (accion == "OBTENER_HISTORIAL")
+                        {
+                            int pacienteId = 0;
+                            if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
+                            else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
+
+                            var historialFiltrado = _listaConsultasTemp
+                                .FindAll(c => c.PacienteId == pacienteId)
+                                .ConvertAll(c => new
+                                {
+                                    fecha = c.Fecha,
+                                    hora = c.Hora,
+                                    diagnostico = c.Diagnostico,
+                                    observaciones = c.Observaciones
+                                });
+
+                            var respuesta = new
+                            {
+                                Accion = "CARGAR_HISTORIAL",
+                                Historial = historialFiltrado
+                            };
+
+                            string jsonRespuesta = JsonSerializer.Serialize(respuesta);
+                            webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
                         }
                     }
                 }
