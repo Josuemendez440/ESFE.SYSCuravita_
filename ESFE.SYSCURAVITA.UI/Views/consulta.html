@@ -9,6 +9,7 @@
 </head>
 <body>
 
+    <!-- Overlay Alerta de Emergencia -->
     <div class="emergency-overlay" id="emergencyOverlay">
         <div class="emergency-popup">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -18,6 +19,28 @@
         </div>
     </div>
 
+    <!-- Modal Confirmar Aceptar Paciente -->
+    <div id="acceptPatientModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-icon" style="background: var(--primary-light); color: var(--primary);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="8.5" cy="7" r="4"></circle>
+                    <polyline points="17 11 19 13 23 9"></polyline>
+                </svg>
+            </div>
+            <h3 class="modal-title">¿Aceptar Paciente?</h3>
+            <p class="modal-desc">
+                ¿Deseas pasar a consulta a <b id="acceptPatientName" style="color: var(--primary);"></b> (<span id="acceptPatientCode"></span>)?<br>Se extraerá su expediente y se abrirá su historial clínico.
+            </p>
+            <div class="modal-actions">
+                <button class="btn-modal-cancel" onclick="closeAcceptModal()">Cancelar</button>
+                <button class="btn-modal-confirm" style="background: var(--primary);" onclick="confirmarAceptarPaciente()">Aceptar Paciente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cerrar Sesión -->
     <div id="logoutModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-icon">
@@ -36,46 +59,24 @@
         </div>
     </div>
 
+    <!-- Modal Historial del Paciente -->
     <div id="historyModal" class="modal-overlay">
         <div class="history-modal-card">
             <div class="history-modal-header">
                 <div>
-                    <h3 class="history-modal-title">Expediente de Carlos Ortiz Espinoza</h3>
-                    <div class="history-modal-sub">Código: PAC-0421</div>
+                    <h3 class="history-modal-title">Expediente Clínico</h3>
+                    <div class="history-modal-sub">Código: ---</div>
                 </div>
                 <button class="btn-modal-close" onclick="closeHistoryModal()">Cerrar</button>
             </div>
 
             <div class="history-modal-body">
-                <div class="history-card">
-                    <div class="history-card-header">
-                        <div class="history-date">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                            12 ENE 2026
-                        </div>
-                        <span class="history-time">Entrada: 09:30 AM</span>
-                    </div>
-                    <span class="history-label">DIAGNÓSTICO EMITIDO:</span>
-                    <h4 class="history-diag-title">Faringitis Aguda</h4>
-                    <p class="history-desc">Fiebre moderada e inflamación de amígdalas. Se recomendó descanso y tratamiento con antibióticos.</p>
-                </div>
-
-                <div class="history-card">
-                    <div class="history-card-header">
-                        <div class="history-date">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                            05 NOV 2025
-                        </div>
-                        <span class="history-time">Entrada: 14:15 PM</span>
-                    </div>
-                    <span class="history-label">DIAGNÓSTICO EMITIDO:</span>
-                    <h4 class="history-diag-title">Chequeo General / Control de Rutina</h4>
-                    <p class="history-desc">Presión arterial y signos vitales dentro de rangos normales. Paciente en buenas condiciones generales.</p>
-                </div>
+                <!-- Se llena dinámicamente al aceptar paciente -->
             </div>
         </div>
     </div>
 
+    <!-- Menú Lateral -->
     <nav class="sidebar">
         <div class="sidebar-brand">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
@@ -110,31 +111,26 @@
         </div>
     </nav>
 
+    <!-- Contenido Principal -->
     <main class="main-content">
 
+        <!-- Lista Lateral de Espera -->
         <aside class="queue-panel">
             <div class="panel-title">Pacientes en Espera</div>
             <ul class="queue-list" id="listaEspera">
-                <li class="queue-item active">
-                    <span class="badge-urg">Urgente</span>
-                    <b>Carlos Ortiz Espinoza</b>
-                    <span style="color:var(--text-muted); font-size:11px;">Espera: 10 min</span>
-                </li>
-                <li class="queue-item">
-                    <b>Diana Martínez Flores</b>
-                    <span style="color:var(--text-muted); font-size:11px;">Espera: 20 min</span>
-                </li>
+                <!-- Carga únicamente pacientes dinámicos desde expedientes -->
             </ul>
             <button class="btn-simulate" onclick="simulateIncomingEmergency()">Simular Alerta Back-end (US6.2)</button>
         </aside>
 
+        <!-- Área de Trabajo / Consulta Médica -->
         <section class="workspace-panel">
 
             <div class="workspace-card">
                 <div class="patient-card-header">
                     <div>
-                        <h2 id="lblNombrePaciente">Carlos Ortiz Espinoza</h2>
-                        <p style="color: var(--text-muted); font-size: 13px;">Expediente: <b id="lblExpediente" style="color: var(--text-main);">PAC-0421</b> • Edad: <span id="lblEdad">42</span> años</p>
+                        <h2 id="lblNombrePaciente">Sin paciente seleccionado</h2>
+                        <p style="color: var(--text-muted); font-size: 13px;">Expediente: <b id="lblExpediente" style="color: var(--text-main);">---</b> • Edad: <span id="lblEdad">--</span> años</p>
                     </div>
                     <button class="btn-history" onclick="openHistoryModal()">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -149,10 +145,10 @@
                 </div>
 
                 <div class="vitals-grid">
-                    <div class="vital-box"><span>P. Arterial</span><p>120/80 mmHg</p></div>
-                    <div class="vital-box"><span>F. Cardíaca</span><p>78 lpm</p></div>
-                    <div class="vital-box"><span>Temperatura</span><p>36.7 °C</p></div>
-                    <div class="vital-box"><span>Peso</span><p>74.5 Kg</p></div>
+                    <div class="vital-box"><span>P. Arterial</span><p>--/-- mmHg</p></div>
+                    <div class="vital-box"><span>F. Cardíaca</span><p>-- lpm</p></div>
+                    <div class="vital-box"><span>Temperatura</span><p>-- °C</p></div>
+                    <div class="vital-box"><span>Peso</span><p>-- Kg</p></div>
                 </div>
             </div>
 
@@ -172,15 +168,7 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyReceta">
-                        <tr>
-                            <td><b style="color: var(--primary);">Amoxicilina 500mg</b></td>
-                            <td>1 cápsula cada 8 horas por 7 días.</td>
-                            <td style="text-align: center;">
-                                <button class="btn-delete" title="Eliminar medicamento" onclick="this.closest('tr').remove()">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                </button>
-                            </td>
-                        </tr>
+                        <!-- Receta vacía para llenar en consulta -->
                     </tbody>
                 </table>
                 <button class="btn-print" onclick="finalizarConsulta()">Finalizar e Imprimir Receta Física</button>
