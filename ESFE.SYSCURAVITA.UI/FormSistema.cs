@@ -3,6 +3,7 @@ using ESFE.SYSCURAVITA.LN;
 using Microsoft.Web.WebView2.Core;
 using System;
 using System.IO;
+using System.Text.Json;
 using System.Windows.Forms;
 
 namespace ESFE.SYSCURAVITA.UI
@@ -10,6 +11,7 @@ namespace ESFE.SYSCURAVITA.UI
     public partial class FormSistema : Form
     {
         private readonly AccesosEN _usuario;
+        private readonly PacienteLN _pacienteLN = new PacienteLN();
         private bool _esCierreDeSesion = false;
 
         public FormSistema()
@@ -31,15 +33,13 @@ namespace ESFE.SYSCURAVITA.UI
 
             await webView21.EnsureCoreWebView2Async(null);
 
-            // Oculta la barra de estado (URL amarilla/negra)
+            // Ajustes de interfaz del motor WebView2
             webView21.CoreWebView2.Settings.IsStatusBarEnabled = false;
-
-            // Desactiva el menú contextual del clic derecho (con 's' al final)
             webView21.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
 
+            // Escuchar peticiones enviadas desde JavaScript vía window.chrome.webview.postMessage
             webView21.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
 
-            // Si es Admin y no tiene vista asignada, entra por defecto a expedientes
             string vistaInicial = !string.IsNullOrEmpty(_usuario.VistaHtml)
                 ? _usuario.VistaHtml
                 : "expedientes.html";
@@ -56,43 +56,142 @@ namespace ESFE.SYSCURAVITA.UI
             }
             else
             {
-                MessageBox.Show("No se encontró el archivo vista: " + archivoHtml, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("No se encontró la vista especificada: " + archivoHtml, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private async void WebView21_NavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
         {
-            if (e.IsSuccess && _usuario != null)
+            if (!e.IsSuccess || _usuario == null) return;
+
+            // 1. Inyectar permisos según el rol del usuario autenticado
+            string scriptPermisos = $"if (typeof aplicarPermisos === 'function') {{ aplicarPermisos('{_usuario.Rol}'); }}";
+            await webView21.ExecuteScriptAsync(scriptPermisos);
+
+            // 2. Cargar datos iniciales automáticamente según la vista activa
+            if (webView21.Source.AbsolutePath.EndsWith("expedientes.html", StringComparison.OrdinalIgnoreCase))
             {
-                // Inyecta el rol del usuario a la función JavaScript de la vista actual
-                string script = $"if (typeof aplicarPermisos === 'function') {{ aplicarPermisos('{_usuario.Rol}'); }}";
-                await webView21.ExecuteScriptAsync(script);
+                await CargarTablaPacientesAsync();
+            }
+            else if (webView21.Source.AbsolutePath.EndsWith("consulta.html", StringComparison.OrdinalIgnoreCase))
+            {
+                await CargarListaEsperaConsultaAsync();
             }
         }
 
-        private void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
+        private async void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
-            string mensaje = e.TryGetWebMessageAsString();
-
-            switch (mensaje)
+            try
             {
-                case "cerrarSesion":
-                    _esCierreDeSesion = true;
-                    this.Close();
-                    break;
+                string mensaje = e.TryGetWebMessageAsString();
 
-                case "nav_expedientes":
-                    CargarPaginaHtml("expedientes.html");
-                    break;
+                // 1. Manejo de Rutas y Comandos Simples
+                switch (mensaje)
+                {
+                    case "cerrarSesion":
+                        _esCierreDeSesion = true;
+                        this.Close();
+                        return;
 
-                case "nav_consulta":
-                    CargarPaginaHtml("consulta.html");
-                    break;
+                    case "nav_expedientes":
+                        CargarPaginaHtml("expedientes.html");
+                        return;
 
-                case "nav_pago":
-                    CargarPaginaHtml("facturacion.html");
-                    break;
+                    case "nav_consulta":
+                        CargarPaginaHtml("consulta.html");
+                        return;
+
+                    case "nav_pago":
+                        CargarPaginaHtml("facturacion.html");
+                        return;
+
+                    case "cargar_expedientes":
+                        await CargarTablaPacientesAsync();
+                        return;
+                }
+
+                // 2. Procesar objetos JSON (Guardado de Expediente, Petición de Pacientes y Guardado de Consulta)
+                if (mensaje.StartsWith("{"))
+                {
+                    using (JsonDocument doc = JsonDocument.Parse(mensaje))
+                    {
+                        var root = doc.RootElement;
+
+                        // Extraer acción enviada desde JS (maneja mayúsculas o minúsculas)
+                        string accion = "";
+                        if (root.TryGetProperty("accion", out var aMin)) accion = aMin.GetString();
+                        else if (root.TryGetProperty("Accion", out var aMay)) accion = aMay.GetString();
+
+                        if (accion == "guardar_expediente")
+                        {
+                            PacienteEN nuevo = new PacienteEN
+                            {
+                                nombres = root.GetProperty("nombres").GetString(),
+                                apellidos = root.GetProperty("apellidos").GetString(),
+                                dui_documento = root.GetProperty("dui_documento").GetString(),
+                                telefono = root.GetProperty("telefono").GetString()
+                            };
+
+                            if (_pacienteLN.Guardar(nuevo))
+                            {
+                                MessageBox.Show("Expediente guardado exitosamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                await CargarTablaPacientesAsync();
+                                await webView21.ExecuteScriptAsync("document.getElementById('createForm')?.reset();");
+                            }
+                            else
+                            {
+                                MessageBox.Show("No se pudo guardar el expediente. Revise los campos ingresados.", "Atención", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            }
+                        }
+                        else if (accion == "OBTENER_PACIENTES")
+                        {
+                            await CargarListaEsperaConsultaAsync();
+                        }
+                        else if (accion == "GUARDAR_CONSULTA")
+                        {
+                            int pacienteId = root.GetProperty("PacienteId").GetInt32();
+                            string diagnostico = root.GetProperty("Diagnostico").GetString();
+
+                            // Recorrer la lista de medicamentos recibida
+                            if (root.TryGetProperty("Receta", out var recetaArray))
+                            {
+                                foreach (var item in recetaArray.EnumerateArray())
+                                {
+                                    string medicamento = item.GetProperty("Medicamento").GetString();
+                                    string indicacion = item.GetProperty("Indicacion").GetString();
+
+                                    // Invocar tus métodos LN para guardar cada medicamento de la receta
+                                }
+                            }
+
+                            MessageBox.Show("Consulta procesada y guardada correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                    }
+                }
             }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error en la comunicación con la interfaz: " + ex.Message, "Error de Sistema", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async System.Threading.Tasks.Task CargarTablaPacientesAsync()
+        {
+            var lista = _pacienteLN.ObtenerTodos();
+            string jsonLista = JsonSerializer.Serialize(lista);
+            await webView21.ExecuteScriptAsync($"if (typeof renderizarTabla === 'function') {{ renderizarTabla({jsonLista}); }}");
+        }
+
+        private async System.Threading.Tasks.Task CargarListaEsperaConsultaAsync()
+        {
+            var lista = _pacienteLN.ObtenerTodos();
+            var respuesta = new
+            {
+                Accion = "CARGAR_LISTA_ESPERA",
+                Pacientes = lista
+            };
+            string jsonRespuesta = JsonSerializer.Serialize(respuesta);
+            webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

@@ -32,6 +32,8 @@
             --sidebar-bg: #0b1a20;
             --danger: #d94e4e;
             --danger-light: #fcebeb;
+            --success: #10b981;
+            --success-light: #d1fae5;
         }
 
         * {
@@ -333,6 +335,7 @@
             justify-content: space-between;
         }
 
+        /* Estilos Ventanas Modales */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -358,10 +361,8 @@
         }
 
         .modal-icon {
-            width: 48px;
-            height: 48px;
-            background: #fee2e2;
-            color: #dc2626;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -369,9 +370,19 @@
             margin: 0 auto 16px;
         }
 
+            .modal-icon.danger {
+                background: #fee2e2;
+                color: #dc2626;
+            }
+
+            .modal-icon.success {
+                background: var(--success-light);
+                color: var(--success);
+            }
+
             .modal-icon svg {
-                width: 24px;
-                height: 24px;
+                width: 28px;
+                height: 28px;
             }
 
         .modal-title {
@@ -394,7 +405,7 @@
 
         .btn-modal-cancel {
             flex: 1;
-            padding: 10px;
+            padding: 11px;
             background: #f3f4f6;
             color: var(--text-main);
             border: 1px solid var(--border);
@@ -406,7 +417,7 @@
 
         .btn-modal-confirm {
             flex: 1;
-            padding: 10px;
+            padding: 11px;
             background: #dc2626;
             color: var(--white);
             border: none;
@@ -415,6 +426,23 @@
             font-size: 13px;
             cursor: pointer;
         }
+
+        .btn-modal-success {
+            width: 100%;
+            padding: 11px;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+            .btn-modal-success:hover {
+                background: var(--primary-dark);
+            }
 
         @media (max-width: 950px) {
             .workspace-grid {
@@ -582,9 +610,10 @@
         </div>
     </main>
 
+    <!-- Modal para Cerrar Sesión -->
     <div id="logoutModal" class="modal-overlay">
         <div class="modal-card">
-            <div class="modal-icon">
+            <div class="modal-icon danger">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                     <polyline points="16 17 21 12 16 7"></polyline>
@@ -600,40 +629,109 @@
         </div>
     </div>
 
+    <!-- Modal para Confirmación de Guardado -->
+    <div id="successModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-icon success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+            <h3 class="modal-title">Guardado Exitosamente</h3>
+            <p id="successModalText" class="modal-desc">El expediente ha sido registrado correctamente.</p>
+            <button class="btn-modal-success" onclick="closeSuccessModal()">Aceptar</button>
+        </div>
+    </div>
+
     <script>
-        // 1. Al cargar la página, recuperar y aplicar el rol guardado
         document.addEventListener('DOMContentLoaded', () => {
             const rolGuardado = localStorage.getItem('usuarioRol');
-            if (rolGuardado) {
-                aplicarPermisos(rolGuardado);
-            }
+            if (rolGuardado) aplicarPermisos(rolGuardado);
         });
 
-        // 2. Función que llama C# desde el Login
-        function establecerUsuario(rol) {
-            localStorage.setItem('usuarioRol', rol);
-            aplicarPermisos(rol);
+        // 1. Invocado directamente desde C# (CargarTablaPacientesAsync -> renderizarTabla)
+        function renderizarTabla(pacientes) {
+            const tbody = document.getElementById('patientsTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = '';
+
+            if (!pacientes || pacientes.length === 0) return;
+
+            pacientes.forEach(p => {
+                // Mapeo flexible adaptado a las propiedades de PacienteEN
+                const codigo = p.codigo || p.Codigo || `PAC-0${p.id || p.Id || 0}`;
+                const nombreCompleto = p.nombreCompleto || `${p.nombres || p.Nombres || ''} ${p.apellidos || p.Apellidos || ''}`.trim();
+                const dui = p.dui_documento || p.Dui_documento || p.dui || 'N/A';
+
+                agregarFilaTabla(codigo, nombreCompleto, dui);
+            });
         }
 
+        function agregarFilaTabla(code, name, dui) {
+            const table = document.getElementById('patientsTable').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+
+            newRow.innerHTML = `
+                <td><b style="color: var(--primary);">${code}</b></td>
+                <td><b>${name}</b></td>
+                <td style="color: var(--text-muted);">${dui}</td>
+                <td style="text-align: right;">
+                    <button class="btn-action" onclick="selectPatient('${code}', '${name}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        Seleccionar
+                    </button>
+                </td>
+            `;
+        }
+
+        // 2. Envía el objeto JSON exacto que deserializa 'guardar_expediente' en C#
+        function handleCreate(e) {
+            e.preventDefault();
+
+            const inputTel = document.getElementById('inputTelefono');
+
+            const payload = {
+                accion: "guardar_expediente",
+                nombres: document.getElementById('inputNombres').value,
+                apellidos: document.getElementById('inputApellidos').value,
+                dui_documento: document.getElementById('inputDUI').value,
+                telefono: inputTel ? inputTel.value : ""
+            };
+
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify(payload));
+            }
+        }
+
+        // 3. Seleccionar paciente activo para la pantalla de Consulta Médica
+        function selectPatient(code, name) {
+            const banner = document.getElementById('selectionBanner');
+            const text = document.getElementById('selectedPatientText');
+
+            if (banner && text) {
+                text.textContent = `Paciente activo: ${code} - ${name}`;
+                banner.style.display = 'flex';
+            }
+
+            localStorage.setItem('pacienteConsultaActiva', JSON.stringify({ codigo: code, nombre: name }));
+
+            setTimeout(() => {
+                navegar('nav_consulta');
+            }, 400);
+        }
+
+        // 4. Funciones de navegación para los comandos simples de C#
         function navegar(accion) {
             if (window.chrome && window.chrome.webview) {
                 window.chrome.webview.postMessage(accion);
             }
         }
 
-        function openLogoutModal() {
-            document.getElementById('logoutModal').style.display = 'flex';
+        function establecerUsuario(rol) {
+            localStorage.setItem('usuarioRol', rol);
+            aplicarPermisos(rol);
         }
 
-        function closeLogoutModal() {
-            document.getElementById('logoutModal').style.display = 'none';
-        }
-
-        function confirmLogout() {
-            localStorage.removeItem('usuarioRol'); // Limpia la sesión
-            navegar('cerrarSesion');
-        }
-
+        // 5. Filtrado local en la tabla
         function filterTable() {
             const input = document.getElementById('searchInput').value.toLowerCase();
             const table = document.getElementById('patientsTable');
@@ -645,59 +743,34 @@
             }
         }
 
-        function selectPatient(code, name) {
-            const banner = document.getElementById('selectionBanner');
-            const text = document.getElementById('selectedPatientText');
-
-            text.textContent = `Paciente activo: ${code} - ${name}`;
-            banner.style.display = 'flex';
+        // 6. Ventanas Modales
+        function openLogoutModal() { document.getElementById('logoutModal').style.display = 'flex'; }
+        function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
+        function confirmLogout() {
+            localStorage.removeItem('usuarioRol');
+            navegar('cerrarSesion');
         }
 
-        function handleCreate(e) {
-            e.preventDefault();
-            const nombres = document.getElementById('inputNombres').value;
-            const apellidos = document.getElementById('inputApellidos').value;
-            const dui = document.getElementById('inputDUI').value;
-
-            const table = document.getElementById('patientsTable').getElementsByTagName('tbody')[0];
-            const newRow = table.insertRow();
-
-            const newCode = `PAC-0${Math.floor(100 + Math.random() * 900)}`;
-
-            newRow.innerHTML = `
-                <td><b style="color: var(--primary);">${newCode}</b></td>
-                <td><b>${nombres} ${apellidos}</b></td>
-                <td style="color: var(--text-muted);">${dui}</td>
-                <td style="text-align: right;">
-                    <button class="btn-action" onclick="selectPatient('${newCode}', '${nombres} ${apellidos}')">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        Seleccionar
-                    </button>
-                </td>
-            `;
-
-            alert(`Expediente creado correctamente para: ${nombres} ${apellidos}`);
-            document.getElementById('createForm').reset();
+        function openSuccessModal(mensaje) {
+            if (mensaje) document.getElementById('successModalText').textContent = mensaje;
+            document.getElementById('successModal').style.display = 'flex';
         }
+        function closeSuccessModal() { document.getElementById('successModal').style.display = 'none'; }
 
+        // 7. Control de Permisos por Rol
         function aplicarPermisos(rol) {
             const menuExpedientes = document.getElementById('menuExpedientes');
             const menuConsulta = document.getElementById('menuConsulta');
             const menuPago = document.getElementById('menuPago');
 
-            // Resetear visibilidad por defecto
             if (menuExpedientes) menuExpedientes.style.display = '';
             if (menuConsulta) menuConsulta.style.display = '';
             if (menuPago) menuPago.style.display = '';
 
             const rolNorm = (rol || '').toLowerCase().trim();
 
-            // Admin: Mantiene todos los accesos
-            if (rolNorm === 'admin' || rolNorm === 'administrador') {
-                return;
-            }
+            if (rolNorm === 'admin' || rolNorm === 'administrador') return;
 
-            // Restricción por Roles
             if (rolNorm === 'doctor' || rolNorm === 'medico') {
                 if (menuExpedientes) menuExpedientes.style.display = 'none';
                 if (menuPago) menuPago.style.display = 'none';
