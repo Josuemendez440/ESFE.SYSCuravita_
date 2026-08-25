@@ -1,25 +1,25 @@
 using System.Collections.Generic;
-using ESFE.SYSCURAVITA.DAL;
 using ESFE.SYSCURAVITA.EN;
+using ESFE.SYSCURAVITA_DAL;
 
 namespace ESFE.SYSCURAVITA.LN
 {
-    public class PacienteLN
+    public static class PacienteLN
     {
-        private readonly PacienteDAL _pacienteDAL = new PacienteDAL();
-
-        public List<PacienteEN> ObtenerTodos()
+        public static List<PacienteEN> ObtenerTodos()
         {
-            return _pacienteDAL.ObtenerTodos();
+            return PacienteDAL.ObtenerTodos();
         }
 
-        public bool Guardar(PacienteEN pPaciente)
+        public static bool Guardar(PacienteEN? pPaciente)
         {
-            if (pPaciente == null || string.IsNullOrWhiteSpace(pPaciente.nombres) || string.IsNullOrWhiteSpace(pPaciente.dui_documento))
+            if (pPaciente == null ||
+                string.IsNullOrWhiteSpace(pPaciente.nombres) ||
+                string.IsNullOrWhiteSpace(pPaciente.dui_documento))
             {
                 return false;
             }
-            return _pacienteDAL.Guardar(pPaciente);
+            return PacienteDAL.Guardar(pPaciente);
         }
     }
 }

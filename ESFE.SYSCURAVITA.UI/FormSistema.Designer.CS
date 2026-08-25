@@ -43,6 +43,7 @@
             webView21.Size = new System.Drawing.Size(800, 450);
             webView21.TabIndex = 0;
             webView21.ZoomFactor = 1D;
+            webView21.Click += webView21_Click;
             // 
             // FormSistema
             // 

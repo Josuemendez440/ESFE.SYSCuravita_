@@ -1,27 +1,19 @@
 ﻿using System.Collections.Generic;
-using ESFE.SYSCURAVITA.DAL;
 using ESFE.SYSCURAVITA.EN;
+using ESFE.SYSCURAVITA_DAL;
 
 namespace ESFE.SYSCURAVITA.LN
 {
-    public class ConsultaLN
+    public static class ConsultaLN
     {
-        public int GuardarConsulta(ConsultaEN pConsulta)
+        public static bool GuardarDiagnostico(int pacienteId, string? codigoExpediente, string? diagnosticoTexto)
         {
-            if (pConsulta == null || pConsulta.PacienteId <= 0)
-            {
-                return 0;
-            }
-            return ConsultaDAL.GuardarConsulta(pConsulta);
+            return ConsultaDAL.GuardarDiagnostico(pacienteId, codigoExpediente, diagnosticoTexto);
         }
 
-        public List<ConsultaEN> ObtenerHistorial(int pacienteId)
+        public static List<HistorialDTO> ObtenerHistorial(int pacienteId, string? codigoExpediente)
         {
-            if (pacienteId <= 0)
-            {
-                return new List<ConsultaEN>();
-            }
-            return ConsultaDAL.ObtenerHistorial(pacienteId);
+            return ConsultaDAL.ObtenerHistorial(pacienteId, codigoExpediente);
         }
     }
 }

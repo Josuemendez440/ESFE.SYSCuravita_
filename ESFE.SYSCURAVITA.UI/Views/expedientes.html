@@ -74,11 +74,11 @@
                 <form id="createForm" onsubmit="handleCreate(event)">
                     <div class="form-group">
                         <label>Nombres</label>
-                        <input type="text" id="inputNombres" class="form-control" placeholder="" required>
+                        <input type="text" id="inputNombres" class="form-control" placeholder="Ej. Juan Carlos" required>
                     </div>
                     <div class="form-group">
                         <label>Apellidos</label>
-                        <input type="text" id="inputApellidos" class="form-control" placeholder="" required>
+                        <input type="text" id="inputApellidos" class="form-control" placeholder="Ej. Mendoza Castro" required>
                     </div>
                     <div class="form-group">
                         <label>Documento de Identidad (DUI)</label>
@@ -86,7 +86,7 @@
                     </div>
                     <div class="form-group">
                         <label>Teléfono de Contacto</label>
-                        <input type="text" id="inputTelefono" class="form-control" placeholder="0000-0000" required>
+                        <input type="text" id="inputTelefono" class="form-control" placeholder="7788-9900" required>
                     </div>
                     <button type="submit" class="btn-submit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -115,7 +115,7 @@
 
                 <div class="form-group" style="margin-bottom: 24px;">
                     <label>Buscar por Nombre o Documento de Identidad</label>
-                    <input type="text" id="searchInput" onkeyup="filterTable()" class="form-control" placeholder="Escriba para filtrar">
+                    <input type="text" id="searchInput" onkeyup="filterTable()" class="form-control" placeholder="Escriba para filtrar... (Ej. Mendoza, 0123...)">
                 </div>
 
                 <table class="search-table" id="patientsTable">
@@ -127,6 +127,30 @@
                             <th style="text-align: right; width: 130px;">Acción</th>
                         </tr>
                     </thead>
+                    <tbody>
+                        <tr>
+                            <td><b style="color: var(--primary);">PAC-0042</b></td>
+                            <td><b>Juan Carlos Mendoza</b></td>
+                            <td style="color: var(--text-muted);">01234567-8</td>
+                            <td style="text-align: right;">
+                                <button class="btn-action" onclick="selectPatient('PAC-0042', 'Juan Carlos Mendoza')">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    Seleccionar
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><b style="color: var(--primary);">PAC-0108</b></td>
+                            <td><b>María Elena Gómez</b></td>
+                            <td style="color: var(--text-muted);">09876543-2</td>
+                            <td style="text-align: right;">
+                                <button class="btn-action" onclick="selectPatient('PAC-0108', 'María Elena Gómez')">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    Seleccionar
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
                 </table>
             </section>
 

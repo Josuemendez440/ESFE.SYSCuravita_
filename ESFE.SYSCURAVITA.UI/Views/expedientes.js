@@ -109,35 +109,22 @@ function selectPatient(btnElement, paciente) {
     }
 }
 
-// 3. Envío para crear expediente (Corregido)
+// 3. Envío para crear expediente
 function handleCreate(e) {
     e.preventDefault();
 
     const inputTel = document.getElementById('inputTelefono');
-    // 1. Capturamos el elemento del diagnóstico (asegúrate de que este ID sea el correcto)
-    const inputDiag = document.getElementById('inputDiagnostico');
 
     const payload = {
         accion: "guardar_expediente",
         nombres: document.getElementById('inputNombres').value,
         apellidos: document.getElementById('inputApellidos').value,
         dui_documento: document.getElementById('inputDUI').value,
-        telefono: inputTel ? inputTel.value : "",
-        // 2. Enviamos el diagnóstico dentro del JSON a C#
-        diagnostico: inputDiag ? inputDiag.value : ""
+        telefono: inputTel ? inputTel.value : ""
     };
 
     if (window.chrome && window.chrome.webview) {
-        // Enviar datos al backend (C#)
         window.chrome.webview.postMessage(JSON.stringify(payload));
-
-        // 3. Abrir el modal de éxito inmediatamente
-        openSuccessModal("Expediente y diagnóstico guardados correctamente.");
-
-        // OPCIONAL: Limpiar el formulario tras guardar
-        e.target.reset();
-    } else {
-        console.warn("WebView2 no está disponible.");
     }
 }
 

@@ -1,10 +1,10 @@
 ﻿using Microsoft.Data.SqlClient;
 
-namespace ESFE.SYSCURAVITA.DAL
+namespace ESFE.SYSCURAVITA_DAL
 {
-    public class ConexionDAL
+    public static class ConexionDAL
     {
-        private static readonly string conexionStr = @"Server=.\SQLEXPRESS;Database=CURAVITA_DB;Trusted_Connection=True;TrustServerCertificate=True;";
+        private static readonly string conexionStr = "Server=.\\SQLEXPRESS;Database=CURAVITA_DB;Trusted_Connection=True;TrustServerCertificate=True;";
 
         public static SqlConnection ObtenerConexion()
         {

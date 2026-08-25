@@ -1,26 +1,24 @@
-﻿using ESFE.SYSCURAVITA.EN;
-using ESFE.SYSCURAVITA.LN;
-using Microsoft.Web.WebView2.Core;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using ESFE.SYSCURAVITA.EN;
+using ESFE.SYSCURAVITA.LN;
+using ESFE.SYSCURAVITA_DAL;
+using Microsoft.Web.WebView2.Core;
 
 namespace ESFE.SYSCURAVITA.UI
 {
     public partial class FormSistema : Form
     {
         private readonly AccesosEN? _usuario;
-        private readonly PacienteLN _pacienteLN = new PacienteLN();
-        private readonly ConsultaLN _consultaLN = new ConsultaLN();
-        private bool _esCierreDeSesion = false;
+        private bool _esCierreDeSesion;
 
         public FormSistema()
         {
             InitializeComponent();
-            this.WindowState = FormWindowState.Maximized;
+            WindowState = FormWindowState.Maximized;
         }
 
         public FormSistema(AccesosEN usuario) : this()
@@ -38,7 +36,6 @@ namespace ESFE.SYSCURAVITA.UI
 
             webView21.CoreWebView2.Settings.IsStatusBarEnabled = false;
             webView21.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-
             webView21.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
 
             string vistaInicial = !string.IsNullOrEmpty(_usuario.VistaHtml)
@@ -83,27 +80,12 @@ namespace ESFE.SYSCURAVITA.UI
             try
             {
                 string mensaje = e.TryGetWebMessageAsString();
-                string accion = "";
-                JsonElement root = default;
 
-                if (mensaje.StartsWith('{'))
+                switch (mensaje)
                 {
-                    using JsonDocument doc = JsonDocument.Parse(mensaje);
-                    root = doc.RootElement.Clone();
-
-                    if (root.TryGetProperty("Accion", out var aMay)) accion = aMay.GetString() ?? "";
-                    else if (root.TryGetProperty("accion", out var aMin)) accion = aMin.GetString() ?? "";
-                }
-                else
-                {
-                    accion = mensaje;
-                }
-
-                switch (accion.ToLowerInvariant())
-                {
-                    case "cerrarsesion":
+                    case "cerrarSesion":
                         _esCierreDeSesion = true;
-                        this.Close();
+                        Close();
                         return;
 
                     case "nav_expedientes":
@@ -121,94 +103,88 @@ namespace ESFE.SYSCURAVITA.UI
                     case "cargar_expedientes":
                         await CargarTablaPacientesAsync();
                         return;
+                }
 
-                    case "obtener_pacientes":
+                if (mensaje.StartsWith('{'))
+                {
+                    using var doc = JsonDocument.Parse(mensaje);
+                    var root = doc.RootElement;
+
+                    string accion = string.Empty;
+                    if (root.TryGetProperty("accion", out var aMin)) accion = aMin.GetString() ?? string.Empty;
+                    else if (root.TryGetProperty("Accion", out var aMay)) accion = aMay.GetString() ?? string.Empty;
+
+                    if (accion == "guardar_expediente")
+                    {
+                        var nuevo = new PacienteEN
+                        {
+                            nombres = root.TryGetProperty("nombres", out var n) ? n.GetString() ?? string.Empty : string.Empty,
+                            apellidos = root.TryGetProperty("apellidos", out var a) ? a.GetString() ?? string.Empty : string.Empty,
+                            dui_documento = root.TryGetProperty("dui_documento", out var d) ? d.GetString() ?? string.Empty : string.Empty,
+                            telefono = root.TryGetProperty("telefono", out var t) ? t.GetString() ?? string.Empty : string.Empty
+                        };
+
+                        if (PacienteLN.Guardar(nuevo))
+                        {
+                            MessageBox.Show("Expediente guardado exitosamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            await CargarTablaPacientesAsync();
+                            await webView21.ExecuteScriptAsync("document.getElementById('createForm')?.reset();");
+                        }
+                        else
+                        {
+                            MessageBox.Show("No se pudo guardar el expediente. Revise los campos ingresados.", "Atención", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        }
+                    }
+                    else if (accion == "OBTENER_PACIENTES")
+                    {
                         await CargarListaEsperaConsultaAsync();
-                        return;
+                    }
+                    else if (accion == "GUARDAR_CONSULTA")
+                    {
+                        int pacienteId = 0;
+                        if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
+                        else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
 
-                    case "guardar_expediente":
-                        if (root.ValueKind == JsonValueKind.Object)
+                        string codigoExpediente = string.Empty;
+                        if (root.TryGetProperty("codigoExpediente", out var cExp)) codigoExpediente = cExp.GetString() ?? string.Empty;
+                        else if (root.TryGetProperty("codigo_expediente", out var cExp2)) codigoExpediente = cExp2.GetString() ?? string.Empty;
+
+                        string diagnostico = string.Empty;
+                        if (root.TryGetProperty("Diagnostico", out var diag)) diagnostico = diag.GetString() ?? string.Empty;
+                        else if (root.TryGetProperty("diagnostico", out var dMin)) diagnostico = dMin.GetString() ?? string.Empty;
+
+                        bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico);
+
+                        // Se envía la respuesta a JavaScript en lugar de mostrar MessageBox
+                        var respuesta = new
                         {
-                            PacienteEN nuevo = new PacienteEN
-                            {
-                                nombres = root.GetProperty("nombres").GetString(),
-                                apellidos = root.GetProperty("apellidos").GetString(),
-                                dui_documento = root.GetProperty("dui_documento").GetString(),
-                                telefono = root.GetProperty("telefono").GetString()
-                            };
+                            Accion = "CONSULTA_GUARDADA",
+                            Exito = guardado
+                        };
 
-                            if (_pacienteLN.Guardar(nuevo))
-                            {
-                                await webView21.ExecuteScriptAsync("if (typeof openSuccessModal === 'function') { openSuccessModal('Expediente guardado exitosamente.'); }");
-                                await CargarTablaPacientesAsync();
-                                await webView21.ExecuteScriptAsync("document.getElementById('createForm')?.reset();");
-                            }
-                            else
-                            {
-                                await webView21.ExecuteScriptAsync("if (typeof mostrarAlerta === 'function') { mostrarAlerta('Error', 'No se pudo guardar el expediente.', 'error'); }");
-                            }
-                        }
-                        return;
+                        webView21.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(respuesta));
+                    }
+                    else if (accion == "OBTENER_HISTORIAL")
+                    {
+                        int pacienteId = 0;
+                        if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
+                        else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
 
-                    case "guardar_consulta":
-                        if (root.ValueKind == JsonValueKind.Object)
+                        string codigoExpediente = string.Empty;
+                        if (root.TryGetProperty("codigoExpediente", out var cExp)) codigoExpediente = cExp.GetString() ?? string.Empty;
+                        else if (root.TryGetProperty("codigo_expediente", out var cExp2)) codigoExpediente = cExp2.GetString() ?? string.Empty;
+
+                        var historialFiltrado = ConsultaLN.ObtenerHistorial(pacienteId, codigoExpediente);
+
+                        var respuesta = new
                         {
-                            int pacienteId = 0;
-                            if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
-                            else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
+                            Accion = "CARGAR_HISTORIAL",
+                            Historial = historialFiltrado
+                        };
 
-                            // Extraer EstadoConsultaId enviada desde JavaScript
-                            int estadoConsultaId = 1;
-                            if (root.TryGetProperty("EstadoConsultaId", out var eId)) estadoConsultaId = eId.GetInt32();
-                            else if (root.TryGetProperty("estadoConsultaId", out var eIdMin)) estadoConsultaId = eIdMin.GetInt32();
-
-                            string diagnostico = "";
-                            if (root.TryGetProperty("Diagnostico", out var d)) diagnostico = d.GetString() ?? "";
-                            else if (root.TryGetProperty("diagnostico", out var dMin)) diagnostico = dMin.GetString() ?? "";
-
-                            ConsultaEN consulta = new ConsultaEN
-                            {
-                                PacienteId = pacienteId,
-                                EstadoConsultaId = estadoConsultaId,
-                                Diagnostico = string.IsNullOrWhiteSpace(diagnostico) ? "Sin diagnóstico especificado" : diagnostico
-                            };
-
-                            int resultado = _consultaLN.GuardarConsulta(consulta);
-
-                            if (resultado <= 0)
-                            {
-                                await webView21.ExecuteScriptAsync("if (typeof mostrarAlerta === 'function') { mostrarAlerta('Error de Base de Datos', 'No se pudo registrar la consulta.', 'error'); }");
-                            }
-                        }
-                        return;
-
-                    case "obtener_historial":
-                        if (root.ValueKind == JsonValueKind.Object)
-                        {
-                            int pacienteId = 0;
-                            if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
-                            else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
-
-                            var listaDB = _consultaLN.ObtenerHistorial(pacienteId);
-
-                            var historialFiltrado = listaDB.ConvertAll(c => new
-                            {
-                                fecha = c.FechaConsulta.ToString("dd/MM/yyyy"),
-                                hora = c.FechaConsulta.ToString("hh:mm tt"),
-                                diagnostico = c.Diagnostico,
-                                observaciones = "Consulta procesada correctamente."
-                            });
-
-                            var respuesta = new
-                            {
-                                Accion = "CARGAR_HISTORIAL",
-                                Historial = historialFiltrado
-                            };
-
-                            string jsonRespuesta = JsonSerializer.Serialize(respuesta);
-                            webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
-                        }
-                        return;
+                        string jsonRespuesta = JsonSerializer.Serialize(respuesta);
+                        webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
+                    }
                 }
             }
             catch (Exception ex)
@@ -219,14 +195,14 @@ namespace ESFE.SYSCURAVITA.UI
 
         private async Task CargarTablaPacientesAsync()
         {
-            var lista = _pacienteLN.ObtenerTodos();
+            var lista = PacienteLN.ObtenerTodos();
             string jsonLista = JsonSerializer.Serialize(lista);
             await webView21.ExecuteScriptAsync($"if (typeof renderizarTabla === 'function') {{ renderizarTabla({jsonLista}); }}");
         }
 
-        private Task CargarListaEsperaConsultaAsync()
+        private async Task CargarListaEsperaConsultaAsync()
         {
-            var lista = _pacienteLN.ObtenerTodos();
+            var lista = PacienteLN.ObtenerTodos();
             var respuesta = new
             {
                 Accion = "CARGAR_LISTA_ESPERA",
@@ -234,7 +210,7 @@ namespace ESFE.SYSCURAVITA.UI
             };
             string jsonRespuesta = JsonSerializer.Serialize(respuesta);
             webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
-            return Task.CompletedTask;
+            await Task.CompletedTask;
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -252,6 +228,10 @@ namespace ESFE.SYSCURAVITA.UI
             {
                 Application.Exit();
             }
+        }
+
+        private void webView21_Click(object? sender, EventArgs e)
+        {
         }
     }
 }

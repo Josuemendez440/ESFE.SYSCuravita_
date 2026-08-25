@@ -19,22 +19,6 @@
         </div>
     </div>
 
-    <!-- Modal Personalizado de Notificaciones / Alertas -->
-    <div id="customAlertModal" class="modal-overlay">
-        <div class="modal-card">
-            <div class="modal-icon" id="customAlertIcon" style="background: #e6f4ea; color: #137333;">
-                <svg id="customAlertSvg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-            </div>
-            <h3 class="modal-title" id="customAlertTitle">Notificación</h3>
-            <p class="modal-desc" id="customAlertMessage">Mensaje del sistema...</p>
-            <div class="modal-actions">
-                <button class="btn-modal-confirm" id="customAlertBtn" style="background: var(--primary); width: 100%;" onclick="closeCustomAlert()">Aceptar</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal Confirmar Aceptar Paciente -->
     <div id="acceptPatientModal" class="modal-overlay">
         <div class="modal-card">
@@ -134,13 +118,32 @@
         <aside class="queue-panel">
             <div class="panel-title">Pacientes en Espera</div>
             <ul class="queue-list" id="listaEspera">
-                <!-- Carga únicamente pacientes dinámicos desde expedientes -->
+                <!-- Carga únicamente pacientes dinámicos desde la base de datos -->
             </ul>
             <button class="btn-simulate" onclick="simulateIncomingEmergency()">Simular Alerta Back-end (US6.2)</button>
         </aside>
 
-        <!-- Área de Trabajo / Consulta Médica -->
-        <section class="workspace-panel">
+        <!-- Estado Vacío: Se muestra cuando NO hay expediente seleccionado -->
+        <section class="workspace-panel" id="emptyWorkspace" style="display: flex; align-items: center; justify-content: center; min-height: 450px;">
+            <div class="workspace-card" style="width: 100%; text-align: center; padding: 48px 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+                <div style="width: 64px; height: 64px; background: var(--primary-light); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                <h3 style="font-size: 20px; font-weight: 700; color: var(--text-main);">Sin expediente seleccionado</h3>
+                <p style="color: var(--text-muted); font-size: 14px; max-width: 420px; line-height: 1.5;">
+                    Seleccione un expediente de la lista en espera para cargar su información clínica y comenzar la consulta médica.
+                </p>
+            </div>
+        </section>
+
+        <!-- Área de Trabajo / Consulta Médica (Se muestra ÚNICAMENTE al seleccionar un expediente) -->
+        <section class="workspace-panel" id="workspacePanel" style="display: none;">
 
             <div class="workspace-card">
                 <div class="patient-card-header">
@@ -175,13 +178,6 @@
 
             <div class="workspace-card">
                 <div class="panel-title">Prescripción (Generador de Fármacos)</div>
-
-                <div class="prescription-form">
-                    <input type="text" id="txtMedicamento" class="form-control" placeholder="Nombre del medicamento (ej: Paracetamol 500mg)">
-                    <input type="text" id="txtIndicacion" class="form-control" placeholder="Indicaciones (ej: 1 tableta cada 8 horas por 5 días)">
-                    <button type="button" class="btn-add-med" onclick="agregarMedicamento()">+ Agregar</button>
-                </div>
-
                 <table class="recipe-table">
                     <thead>
                         <tr>

@@ -304,7 +304,7 @@ body {
 }
 
     .btn-modal-confirm:hover {
-        opacity: 0.9;
+        background: #BD3A3A;
     }
 
 .patient-card-header {
@@ -621,29 +621,6 @@ body {
         box-shadow: 0 0 0 3px rgba(25,83,102,0.1);
     }
 
-.prescription-form {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 16px;
-}
-
-.btn-add-med {
-    background: var(--primary);
-    color: var(--white);
-    border: none;
-    padding: 0 20px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.2s;
-}
-
-    .btn-add-med:hover {
-        background: var(--primary-dark);
-    }
-
 .recipe-table {
     width: 100%;
     border-collapse: collapse;
@@ -746,8 +723,30 @@ body {
     .vitals-grid {
         grid-template-columns: 1fr;
     }
-
-    .prescription-form {
-        flex-direction: column;
-    }
 }
+
+/* Notificaciones Flotantes (Toast) */
+.toast-notificacion {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #10B981;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: all 0.3s ease;
+    z-index: 9999;
+}
+
+    .toast-notificacion.error {
+        background-color: #EF4444;
+    }
+
+    .toast-notificacion.mostrar {
+        opacity: 1;
+        transform: translateY(0);
+    }
