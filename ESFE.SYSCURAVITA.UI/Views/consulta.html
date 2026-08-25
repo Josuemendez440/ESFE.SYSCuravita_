@@ -120,7 +120,6 @@
             <ul class="queue-list" id="listaEspera">
                 <!-- Carga únicamente pacientes dinámicos desde la base de datos -->
             </ul>
-            <button class="btn-simulate" onclick="simulateIncomingEmergency()">Simular Alerta Back-end (US6.2)</button>
         </aside>
 
         <!-- Estado Vacío: Se muestra cuando NO hay expediente seleccionado -->
@@ -178,6 +177,16 @@
 
             <div class="workspace-card">
                 <div class="panel-title">Prescripción (Generador de Fármacos)</div>
+
+                <!-- Controles de entrada de fármacos -->
+                <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                    <input type="text" id="inputMedicamentoNombre" class="form-control" placeholder="Fármaco (Ej. Paracetamol 500mg)" style="flex: 1;">
+                    <input type="text" id="inputMedicamentoDosis" class="form-control" placeholder="Indicaciones (Ej. 1 tableta c/8 hrs x 5 días)" style="flex: 2;">
+                    <button type="button" class="btn-action" onclick="agregarMedicamentoTabla()" style="padding: 0 16px; white-space: nowrap;">
+                        + Agregar
+                    </button>
+                </div>
+
                 <table class="recipe-table">
                     <thead>
                         <tr>
@@ -187,10 +196,10 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyReceta">
-                        <!-- Receta vacía para llenar en consulta -->
+                        <!-- Se llena dinámicamente con JavaScript -->
                     </tbody>
                 </table>
-                <button class="btn-print" onclick="finalizarConsulta()">Finalizar e Imprimir Receta Física</button>
+                <button class="btn-print" onclick="finalizarConsulta()" style="margin-top: 16px;">Finalizar e Imprimir Receta Física</button>
             </div>
         </section>
     </main>

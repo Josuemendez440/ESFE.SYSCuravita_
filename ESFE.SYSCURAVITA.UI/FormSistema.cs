@@ -155,7 +155,6 @@ namespace ESFE.SYSCURAVITA.UI
 
                         bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico);
 
-                        // Se envía la respuesta a JavaScript en lugar de mostrar MessageBox
                         var respuesta = new
                         {
                             Accion = "CONSULTA_GUARDADA",
@@ -181,6 +180,23 @@ namespace ESFE.SYSCURAVITA.UI
                             Accion = "CARGAR_HISTORIAL",
                             Historial = historialFiltrado
                         };
+
+                        string jsonRespuesta = JsonSerializer.Serialize(respuesta);
+                        webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
+                    }
+                    else if (accion == "PROCESAR_PAGO_FACTURA")
+                    {
+                        var solicitud = new SolicitudPagoDTO
+                        {
+                            Accion = accion,
+                            NumeroFactura = root.TryGetProperty("NumeroFactura", out var nFac) ? nFac.GetString() ?? string.Empty : string.Empty,
+                            Paciente = root.TryGetProperty("Paciente", out var pac) ? pac.GetString() ?? string.Empty : string.Empty,
+                            MetodoPago = root.TryGetProperty("MetodoPago", out var met) ? met.GetString() ?? string.Empty : string.Empty,
+                            MontoTotal = root.TryGetProperty("MontoTotal", out var mnt) ? mnt.GetDecimal() : 0m
+                        };
+
+                        // Recibe el RespuestaPagoDTO con el estado e información de la transacción
+                        RespuestaPagoDTO respuesta = FacturaLN.ProcesarCobro(solicitud);
 
                         string jsonRespuesta = JsonSerializer.Serialize(respuesta);
                         webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);

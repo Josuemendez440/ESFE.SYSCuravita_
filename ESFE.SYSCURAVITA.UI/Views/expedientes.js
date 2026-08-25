@@ -114,13 +114,15 @@ function handleCreate(e) {
     e.preventDefault();
 
     const inputTel = document.getElementById('inputTelefono');
+    const inputFecha = document.getElementById('inputFechaNacimiento');
 
     const payload = {
         accion: "guardar_expediente",
         nombres: document.getElementById('inputNombres').value,
         apellidos: document.getElementById('inputApellidos').value,
         dui_documento: document.getElementById('inputDUI').value,
-        telefono: inputTel ? inputTel.value : ""
+        telefono: inputTel ? inputTel.value : "",
+        fecha_nacimiento: inputFecha ? inputFecha.value : null
     };
 
     if (window.chrome && window.chrome.webview) {

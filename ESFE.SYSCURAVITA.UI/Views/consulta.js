@@ -1,14 +1,16 @@
 ﻿let pacientePendiente = null;
 let pacienteSeleccionadoId = 0;
+let listaReceta = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     const rolGuardado = localStorage.getItem('usuarioRol');
     if (rolGuardado) aplicarPermisos(rolGuardado);
     cargarListaEsperaLocal();
+    renderizarTablaReceta();
     actualizarEstadoVista();
 });
 
-// Refresca la lista de espera cuando la pantalla recupera el foco
+// Refrescar la lista de espera al recuperar el foco
 window.addEventListener('focus', cargarListaEsperaLocal);
 
 // Receptor de mensajes WebView2 (C#)
@@ -45,7 +47,7 @@ function mostrarToast(mensaje, tipo = "exito") {
     }, 3000);
 }
 
-// Controla la visibilidad del área de trabajo según si hay un expediente seleccionado
+// Controla la visibilidad del área de trabajo
 function actualizarEstadoVista() {
     const emptyWorkspace = document.getElementById('emptyWorkspace');
     const workspacePanel = document.getElementById('workspacePanel');
@@ -139,7 +141,7 @@ function confirmarAceptarPaciente() {
     closeAcceptModal();
 }
 
-// Solicita el historial acumulado
+// Historial
 function obtenerHistorialCompleto() {
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({
@@ -152,7 +154,6 @@ function obtenerHistorialCompleto() {
     }
 }
 
-// Renderiza combinando el historial local acumulado y los datos de C#
 function renderizarHistorial(historialServidor) {
     const container = document.querySelector('.history-modal-body');
     if (!container) return;
@@ -181,33 +182,55 @@ function renderizarHistorial(historialServidor) {
     `).join('');
 }
 
-// Agregar medicamentos a la tabla de prescripción
-function agregarMedicamento() {
-    const medInput = document.getElementById('txtMedicamento');
-    const indInput = document.getElementById('txtIndicacion');
-    if (!medInput || !indInput || !medInput.value.trim() || !indInput.value.trim()) {
-        mostrarToast("Ingrese el medicamento y la indicación.", "error");
+// Gestión de Receta
+function agregarMedicamentoTabla() {
+    const inputNombre = document.getElementById('inputMedicamentoNombre');
+    const inputDosis = document.getElementById('inputMedicamentoDosis');
+
+    const nombre = inputNombre ? inputNombre.value.trim() : '';
+    const dosis = inputDosis ? inputDosis.value.trim() : '';
+
+    if (!nombre) {
+        mostrarToast("Ingrese el nombre del medicamento.", "error");
         return;
     }
 
-    const tbody = document.getElementById('tbodyReceta');
-    if (!tbody) return;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-        <td><b style="color: var(--primary);">${medInput.value.trim()}</b></td>
-        <td>${indInput.value.trim()}</td>
-        <td style="text-align: center;">
-            <button class="btn-delete" title="Eliminar medicamento" onclick="this.closest('tr').remove()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-            </button>
-        </td>
-    `;
-    tbody.appendChild(tr);
-    medInput.value = '';
-    indInput.value = '';
+    listaReceta.push({ medicamento: nombre, indicaciones: dosis });
+
+    inputNombre.value = '';
+    inputDosis.value = '';
+
+    renderizarTablaReceta();
 }
 
-// Guarda la consulta, actualiza el historial acumulado, desocupa la pantalla y saca al paciente de la lista
+function eliminarMedicamentoTabla(index) {
+    listaReceta.splice(index, 1);
+    renderizarTablaReceta();
+}
+
+function renderizarTablaReceta() {
+    const tbody = document.getElementById('tbodyReceta');
+    if (!tbody) return;
+
+    if (listaReceta.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color: var(--text-muted); font-size: 13px;">No hay medicamentos agregados a la receta.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = listaReceta.map((item, index) => `
+        <tr>
+            <td><b>${item.medicamento}</b></td>
+            <td>${item.indicaciones || 'Sin indicaciones especificadas'}</td>
+            <td style="text-align: center;">
+                <button type="button" class="btn-delete" title="Quitar medicamento" onclick="eliminarMedicamentoTabla(${index})">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Finalización Única y Remoción de Cola de Espera
 function finalizarConsulta() {
     if (!pacientePendiente || !pacienteSeleccionadoId) {
         mostrarToast("Seleccione un expediente de la lista antes de finalizar.", "error");
@@ -216,29 +239,22 @@ function finalizarConsulta() {
 
     const txtDiag = document.getElementById('txtDiagnostico');
     const diag = txtDiag ? txtDiag.value.trim() : '';
+
     if (!diag) {
         mostrarToast("Escriba un diagnóstico antes de finalizar.", "error");
         return;
     }
 
-    const medicamentos = [];
-    document.querySelectorAll('#tbodyReceta tr').forEach(row => {
-        medicamentos.push({
-            Medicamento: row.cells[0].innerText,
-            Indicacion: row.cells[1].innerText
-        });
-    });
-
     const fechaActual = new Date().toLocaleDateString('es-ES');
     const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-    // 1. Guardar localmente la nueva consulta para acumular diagnósticos múltiples
+    // 1. Guardar en el historial local
     const nuevaEntradaHistorial = {
         fecha: fechaActual,
         hora: horaActual,
         diagnostico: diag,
-        observaciones: medicamentos.length > 0
-            ? "Receta: " + medicamentos.map(m => `${m.Medicamento} (${m.Indicacion})`).join(', ')
+        observaciones: listaReceta.length > 0
+            ? "Receta: " + listaReceta.map(m => `${m.medicamento} (${m.indicaciones})`).join(', ')
             : 'Sin medicamentos formulados.'
     };
 
@@ -246,34 +262,48 @@ function finalizarConsulta() {
     historialExistente.unshift(nuevaEntradaHistorial);
     localStorage.setItem(`historial_${pacienteSeleccionadoId}`, JSON.stringify(historialExistente));
 
-    // 2. Enviar datos al backend C#
+    // 2. Notificar al Backend (C#)
     const paquete = {
         Accion: "GUARDAR_CONSULTA",
+        accion: "guardar_consulta",
         PacienteId: pacienteSeleccionadoId,
+        codigo_expediente: pacientePendiente.codigo_expediente || pacientePendiente.codigo,
         Diagnostico: diag,
-        Receta: medicamentos
+        Receta: listaReceta
     };
 
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify(paquete));
     }
 
-    mostrarToast("Diagnóstico agregado exitosamente al expediente", "exito");
+    mostrarToast("Consulta guardada y expediente liberado", "exito");
 
-    // 3. Eliminar paciente de la lista de espera
+    // 3. Remover paciente de la lista de espera (localStorage + DOM)
     let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
     const targetUid = pacientePendiente.uid;
     const targetCode = pacientePendiente.codigo_expediente || pacientePendiente.codigo;
+    const targetId = pacienteSeleccionadoId;
 
     listaLocal = listaLocal.filter(p => {
         if (targetUid && p.uid) return p.uid !== targetUid;
+        if (targetId && (p.paciente_id || p.id)) return (p.paciente_id || p.id) !== targetId;
         return (p.codigo_expediente || p.codigo) !== targetCode;
     });
 
     localStorage.setItem('listaEspera', JSON.stringify(listaLocal));
     renderizarListaEspera(listaLocal);
 
-    // 4. Limpiar datos y regresar a la vista sin expediente seleccionado
+    // 4. Limpiar workspace y resetear estado
+    limpiarWorkspaceConsulta();
+}
+
+function limpiarWorkspaceConsulta() {
+    const diag = document.getElementById('txtDiagnostico');
+    if (diag) diag.value = '';
+
+    listaReceta = [];
+    renderizarTablaReceta();
+
     pacientePendiente = null;
     pacienteSeleccionadoId = 0;
 
@@ -286,14 +316,10 @@ function finalizarConsulta() {
     const lblEdad = document.getElementById('lblEdad');
     if (lblEdad) lblEdad.innerText = '--';
 
-    if (txtDiag) txtDiag.value = '';
-    const tbody = document.getElementById('tbodyReceta');
-    if (tbody) tbody.innerHTML = '';
-
     actualizarEstadoVista();
 }
 
-// Modales y navegación
+// Modales y Navegación
 function openHistoryModal() {
     if (!pacienteSeleccionadoId) {
         mostrarToast("Seleccione y acepte un expediente para consultar su historial.", "error");
