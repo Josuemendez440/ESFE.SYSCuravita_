@@ -19,6 +19,22 @@
         </div>
     </div>
 
+    <!-- Modal Personalizado de Notificaciones / Alertas -->
+    <div id="customAlertModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-icon" id="customAlertIcon" style="background: #e6f4ea; color: #137333;">
+                <svg id="customAlertSvg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+            <h3 class="modal-title" id="customAlertTitle">Notificación</h3>
+            <p class="modal-desc" id="customAlertMessage">Mensaje del sistema...</p>
+            <div class="modal-actions">
+                <button class="btn-modal-confirm" id="customAlertBtn" style="background: var(--primary); width: 100%;" onclick="closeCustomAlert()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Confirmar Aceptar Paciente -->
     <div id="acceptPatientModal" class="modal-overlay">
         <div class="modal-card">
@@ -159,6 +175,13 @@
 
             <div class="workspace-card">
                 <div class="panel-title">Prescripción (Generador de Fármacos)</div>
+
+                <div class="prescription-form">
+                    <input type="text" id="txtMedicamento" class="form-control" placeholder="Nombre del medicamento (ej: Paracetamol 500mg)">
+                    <input type="text" id="txtIndicacion" class="form-control" placeholder="Indicaciones (ej: 1 tableta cada 8 horas por 5 días)">
+                    <button type="button" class="btn-add-med" onclick="agregarMedicamento()">+ Agregar</button>
+                </div>
+
                 <table class="recipe-table">
                     <thead>
                         <tr>

@@ -5,26 +5,78 @@ document.addEventListener('DOMContentLoaded', () => {
     const rolGuardado = localStorage.getItem('usuarioRol');
     if (rolGuardado) aplicarPermisos(rolGuardado);
     cargarListaEsperaLocal();
+
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_LISTA_ESPERA" }));
+    }
 });
 
-// Refresca la lista de espera cuando la pantalla recupera el foco[cite: 16]
+// Refresca la lista de espera cuando la pantalla recupera el foco
 window.addEventListener('focus', cargarListaEsperaLocal);
 
-// Receptor de mensajes WebView2 (C#)[cite: 16]
+// Receptor de mensajes WebView2 (C#)
 if (window.chrome && window.chrome.webview) {
     window.chrome.webview.addEventListener('message', function (event) {
         const datos = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (datos.Accion === "CARGAR_HISTORIAL") {
-            renderizarHistorial(datos.Historial);
+        if (datos.Accion === "CARGAR_HISTORIAL" || datos.accion === "CARGAR_HISTORIAL") {
+            renderizarHistorial(datos.Historial || datos.historial);
+        } else if (datos.Accion === "CARGAR_LISTA_ESPERA" || datos.accion === "CARGAR_LISTA_ESPERA") {
+            const pacientesActualizados = datos.Pacientes || datos.pacientes || [];
+            // Actualiza localStorage con la lista real proveniente de la BD (si está vacía, limpia la caché)
+            localStorage.setItem('listaEspera', JSON.stringify(pacientesActualizados));
+            renderizarListaEspera(pacientesActualizados);
         }
     });
 }
 
-// 1. Cargar únicamente los pacientes seleccionados en la pantalla de Expedientes[cite: 16]
+// Control del Modal de Notificación Personalizado
+function mostrarAlerta(titulo, mensaje, tipo = 'info') {
+    const modal = document.getElementById('customAlertModal');
+    const lblTitle = document.getElementById('customAlertTitle');
+    const lblMsg = document.getElementById('customAlertMessage');
+    const iconContainer = document.getElementById('customAlertIcon');
+    const iconSvg = document.getElementById('customAlertSvg');
+    const btn = document.getElementById('customAlertBtn');
+
+    if (!modal) return;
+
+    lblTitle.innerText = titulo;
+    lblMsg.innerText = mensaje;
+
+    if (tipo === 'exito' || tipo === 'success') {
+        iconContainer.style.background = '#e6f4ea';
+        iconContainer.style.color = '#137333';
+        btn.style.background = '#137333';
+        iconSvg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+    } else if (tipo === 'error' || tipo === 'danger') {
+        iconContainer.style.background = 'var(--danger-light)';
+        iconContainer.style.color = 'var(--danger)';
+        btn.style.background = 'var(--danger)';
+        iconSvg.innerHTML = '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>';
+    } else {
+        iconContainer.style.background = '#fff4e5';
+        iconContainer.style.color = '#b76e00';
+        btn.style.background = 'var(--primary)';
+        iconSvg.innerHTML = '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeCustomAlert() {
+    const modal = document.getElementById('customAlertModal');
+    if (modal) modal.style.display = 'none';
+}
+
+// 1. Cargar únicamente los pacientes en espera solicitando verificación al backend
 function cargarListaEsperaLocal() {
+    // Consulta al backend para actualizar la lista real
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_LISTA_ESPERA" }));
+    }
+
     let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
 
-    // Filtra datos obsoletos de prueba (ej. PAC-00)
     listaLocal = listaLocal.filter(p => {
         const codigo = p.codigo_expediente || p.codigo || '';
         return codigo !== 'PAC-00' && codigo !== '' && codigo !== 'N/A';
@@ -56,7 +108,7 @@ function renderizarListaEspera(pacientes) {
     });
 }
 
-// 2. Control del Modal de Confirmación "Aceptar Paciente"[cite: 16]
+// 2. Control del Modal de Confirmación "Aceptar Paciente"
 function solicitarConfirmacionAceptar(p, elementoHtml) {
     document.querySelectorAll('.queue-item').forEach(el => el.classList.remove('active'));
     if (elementoHtml) elementoHtml.classList.add('active');
@@ -78,24 +130,22 @@ function closeAcceptModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// 3. Confirmación y carga del paciente al espacio de trabajo[cite: 16]
+// 3. Confirmación y carga del paciente al espacio de trabajo
 function confirmarAceptarPaciente() {
     if (!pacientePendiente) return;
     const p = pacientePendiente;
 
-    pacienteSeleccionadoId = p.paciente_id || p.id || 0;
+    pacienteSeleccionadoId = p.paciente_id || p.id || p.PacienteId || 0;
 
     // Cargar datos en la tarjeta principal
     document.getElementById('lblNombrePaciente').innerText = `${p.nombres} ${p.apellidos || ''}`;
     document.getElementById('lblExpediente').innerText = p.codigo_expediente || p.codigo || 'N/A';
 
-    if (p.fecha_nacimiento) {
-        const fechaNac = new Date(p.fecha_nacimiento);
-        const edad = new Date().getFullYear() - fechaNac.getFullYear();
-        document.getElementById('lblEdad').innerText = edad;
-    } else {
-        document.getElementById('lblEdad').innerText = p.edad || 'N/A';
-    }
+    // LIMPIAR DIAGNÓSTICO Y RECETA ANTERIOR
+    const txtDiag = document.getElementById('txtDiagnostico');
+    if (txtDiag) txtDiag.value = '';
+    const tbody = document.getElementById('tbodyReceta');
+    if (tbody) tbody.innerHTML = '';
 
     // Actualizar datos del modal de historial
     const modalTitle = document.querySelector('.history-modal-title');
@@ -115,7 +165,7 @@ function confirmarAceptarPaciente() {
     closeAcceptModal();
 }
 
-// 4. Renderizado del historial clínico desde C#[cite: 16]
+// 4. Renderizado del historial clínico desde C#
 function renderizarHistorial(historial) {
     const container = document.querySelector('.history-modal-body');
     if (!container) return;
@@ -141,12 +191,12 @@ function renderizarHistorial(historial) {
     `).join('');
 }
 
-// 5. Gestión de Receta[cite: 16]
+// 5. Gestión de Receta
 function agregarMedicamento() {
     const medInput = document.getElementById('txtMedicamento');
     const indInput = document.getElementById('txtIndicacion');
     if (!medInput || !indInput || !medInput.value.trim() || !indInput.value.trim()) {
-        alert("Ingrese el medicamento y la indicación.");
+        mostrarAlerta("Campos Incompletos", "Por favor ingrese el nombre del medicamento y la indicación de toma.", "advertencia");
         return;
     }
 
@@ -166,17 +216,17 @@ function agregarMedicamento() {
     indInput.value = '';
 }
 
-// 6. Finalizar consulta, remover de lista de espera y limpiar interfaz[cite: 16]
+// 6. Finalizar consulta, remover de lista de espera y limpiar interfaz
 function finalizarConsulta() {
     if (!pacientePendiente) {
-        alert("Seleccione un paciente de la lista de espera antes de finalizar.");
+        mostrarAlerta("Paciente Requerido", "Seleccione un paciente de la lista de espera antes de finalizar la consulta.", "advertencia");
         return;
     }
 
     const txtDiag = document.getElementById('txtDiagnostico');
     const diag = txtDiag ? txtDiag.value.trim() : '';
     if (!diag) {
-        alert("Escriba un diagnóstico antes de finalizar.");
+        mostrarAlerta("Diagnóstico Faltante", "Escriba la impresión diagnóstica del paciente antes de finalizar.", "advertencia");
         return;
     }
 
@@ -191,6 +241,8 @@ function finalizarConsulta() {
     const paquete = {
         Accion: "GUARDAR_CONSULTA",
         PacienteId: pacienteSeleccionadoId,
+        TipoAtencionId: 1,
+        EstadoConsultaId: 1,
         Diagnostico: diag,
         Receta: medicamentos
     };
@@ -199,7 +251,6 @@ function finalizarConsulta() {
         window.chrome.webview.postMessage(JSON.stringify(paquete));
     }
 
-    // Remover al paciente finalizado de localStorage usando UID o Código
     let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
     const targetUid = pacientePendiente.uid;
     const targetCode = pacientePendiente.codigo_expediente || pacientePendiente.codigo;
@@ -212,7 +263,6 @@ function finalizarConsulta() {
     localStorage.setItem('listaEspera', JSON.stringify(listaLocal));
     renderizarListaEspera(listaLocal);
 
-    // Resetear la interfaz
     pacientePendiente = null;
     pacienteSeleccionadoId = 0;
     document.getElementById('lblNombrePaciente').innerText = 'Sin paciente seleccionado';
@@ -222,17 +272,16 @@ function finalizarConsulta() {
     const tbody = document.getElementById('tbodyReceta');
     if (tbody) tbody.innerHTML = '';
 
-    alert("Consulta procesada exitosamente.");
+    mostrarAlerta("¡Consulta Guardada!", "La consulta médica y la receta física se han procesado exitosamente.", "exito");
 }
 
-// Modales y Utilidades[cite: 16]
+// Modales y Utilidades
 function openHistoryModal() {
     if (!pacienteSeleccionadoId) {
-        alert("Seleccione y acepte a un paciente para consultar su historial.");
+        mostrarAlerta("Sin Paciente Seleccionado", "Seleccione y acepte a un paciente antes de consultar su expediente clínico.", "advertencia");
         return;
     }
 
-    // Solicitar el historial actualizado a C# al abrir el modal
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({
             Accion: "OBTENER_HISTORIAL",
@@ -247,6 +296,7 @@ function openHistoryModal() {
 function closeHistoryModal() { document.getElementById('historyModal').style.display = 'none'; }
 function openLogoutModal() { document.getElementById('logoutModal').style.display = 'flex'; }
 function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
+
 function confirmLogout() {
     localStorage.removeItem('usuarioRol');
     navegar('cerrarSesion');
@@ -254,7 +304,7 @@ function confirmLogout() {
 
 function navegar(accion) {
     if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(accion);
+        window.chrome.webview.postMessage(JSON.stringify({ Accion: accion }));
     }
 }
 
@@ -292,5 +342,6 @@ document.addEventListener('keydown', function (event) {
         dismissEmergency();
         closeHistoryModal();
         closeAcceptModal();
+        closeCustomAlert();
     }
 });

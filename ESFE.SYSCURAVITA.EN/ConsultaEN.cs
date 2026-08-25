@@ -1,12 +1,13 @@
-﻿namespace ESFE.SYSCURAVITA.EN
+﻿using System;
+
+namespace ESFE.SYSCURAVITA.EN
 {
     public class ConsultaEN
     {
-        public int Id { get; set; }
+        public int ConsultaId { get; set; }
         public int PacienteId { get; set; }
-        public string Diagnostico { get; set; } = string.Empty;
-        public string Fecha { get; set; } = string.Empty;
-        public string Hora { get; set; } = string.Empty;
-        public string Observaciones { get; set; } = string.Empty;
+        public int EstadoConsultaId { get; set; } // Propiedad requerida agregada
+        public string? Diagnostico { get; set; }
+        public DateTime FechaConsulta { get; set; }
     }
 }
