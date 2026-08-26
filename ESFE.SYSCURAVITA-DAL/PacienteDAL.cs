@@ -1,68 +1,67 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using ESFE.SYSCURAVITA.EN;
+using ESFE.SYSCURAVITA_DAL;
 using Microsoft.Data.SqlClient;
-using ESFE.SYSCURAVITA.EN;
+using System;
+using System.Collections.Generic;
 
-namespace ESFE.SYSCURAVITA_DAL
+namespace ESFE.SYSCURAVITA.DAL
 {
-    public class PacienteDAL
+    public static class PacienteDAL
     {
+        public static bool Guardar(PacienteEN pPaciente)
+        {
+            // Genera automáticamente el código con formato PAC-XXXX en la base de datos
+            string queryInsert = @"
+                INSERT INTO Pacientes (codigo_expediente, nombres, apellidos, dui_documento, telefono, fecha_nacimiento) 
+                VALUES (
+                    ISNULL(NULLIF(@codigo_expediente, ''), CONCAT('PAC-', RIGHT('000' + CAST((ISNULL((SELECT MAX(paciente_id) FROM Pacientes), 0) + 1) AS VARCHAR), 4))),
+                    @nombres, 
+                    @apellidos, 
+                    @dui, 
+                    @telefono, 
+                    @fecha_nacimiento
+                )";
+
+            using var conexion = ConexionDAL.ObtenerConexion();
+            using var cmd = new SqlCommand(queryInsert, conexion);
+
+            cmd.Parameters.AddWithValue("@codigo_expediente", pPaciente.codigo_expediente ?? string.Empty);
+            cmd.Parameters.AddWithValue("@nombres", pPaciente.nombres ?? string.Empty);
+            cmd.Parameters.AddWithValue("@apellidos", pPaciente.apellidos ?? string.Empty);
+            cmd.Parameters.AddWithValue("@dui", pPaciente.dui_documento ?? string.Empty);
+            cmd.Parameters.AddWithValue("@telefono", pPaciente.telefono ?? string.Empty);
+            cmd.Parameters.AddWithValue("@fecha_nacimiento", (object?)pPaciente.fecha_nacimiento ?? DBNull.Value);
+
+            conexion.Open();
+            return cmd.ExecuteNonQuery() > 0;
+        }
+
         public static List<PacienteEN> ObtenerTodos()
         {
             var lista = new List<PacienteEN>();
+            string querySelect = "SELECT paciente_id, codigo_expediente, nombres, apellidos, dui_documento, telefono, fecha_nacimiento FROM Pacientes";
 
-            using var conn = ConexionDAL.ObtenerConexion();
-            string query = @"SELECT paciente_id, codigo_expediente, nombres, apellidos, 
-                                    dui_documento, telefono, direccion, fecha_nacimiento, genero 
-                             FROM Pacientes ORDER BY paciente_id DESC";
+            using var conexion = ConexionDAL.ObtenerConexion();
+            using var cmd = new SqlCommand(querySelect, conexion);
 
-            using var cmd = new SqlCommand(query, conn);
-            conn.Open();
+            conexion.Open();
             using var reader = cmd.ExecuteReader();
+
             while (reader.Read())
             {
                 lista.Add(new PacienteEN
                 {
-                    paciente_id = Convert.ToInt32(reader["paciente_id"]),
-                    codigo_expediente = reader["codigo_expediente"]?.ToString() ?? string.Empty,
-                    nombres = reader["nombres"]?.ToString() ?? string.Empty,
-                    apellidos = reader["apellidos"]?.ToString() ?? string.Empty,
-                    dui_documento = reader["dui_documento"]?.ToString() ?? string.Empty,
-                    telefono = reader["telefono"] != DBNull.Value ? reader["telefono"]?.ToString() : string.Empty,
-                    direccion = reader["direccion"] != DBNull.Value ? reader["direccion"]?.ToString() : string.Empty,
-                    fecha_nacimiento = reader["fecha_nacimiento"] != DBNull.Value ? Convert.ToDateTime(reader["fecha_nacimiento"]) : null,
-                    genero = reader["genero"] != DBNull.Value ? reader["genero"]?.ToString() : string.Empty
+                    paciente_id = reader.GetInt32(0),
+                    codigo_expediente = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                    nombres = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                    apellidos = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                    dui_documento = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                    telefono = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                    fecha_nacimiento = reader.IsDBNull(6) ? null : reader.GetDateTime(6)
                 });
             }
 
             return lista;
-        }
-
-        public static bool Guardar(PacienteEN pPaciente)
-        {
-            using var conn = ConexionDAL.ObtenerConexion();
-            conn.Open();
-
-            string queryCount = "SELECT ISNULL(MAX(paciente_id), 0) + 1 FROM Pacientes";
-            using var cmdCount = new SqlCommand(queryCount, conn);
-            int siguienteId = Convert.ToInt32(cmdCount.ExecuteScalar());
-            string codigoExpediente = $"PAC-{siguienteId:D4}";
-
-            string query = @"INSERT INTO Pacientes 
-                            (codigo_expediente, nombres, apellidos, dui_documento, telefono, direccion, fecha_nacimiento, genero, fecha_creacion) 
-                            VALUES (@Codigo, @Nombres, @Apellidos, @Dui, @Telefono, @Direccion, @FechaNac, @Genero, GETDATE())";
-
-            using var cmd = new SqlCommand(query, conn);
-            cmd.Parameters.AddWithValue("@Codigo", codigoExpediente);
-            cmd.Parameters.AddWithValue("@Nombres", pPaciente.nombres ?? string.Empty);
-            cmd.Parameters.AddWithValue("@Apellidos", pPaciente.apellidos ?? string.Empty);
-            cmd.Parameters.AddWithValue("@Dui", pPaciente.dui_documento ?? string.Empty);
-            cmd.Parameters.AddWithValue("@Telefono", (object?)pPaciente.telefono ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Direccion", (object?)pPaciente.direccion ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@FechaNac", (object?)pPaciente.fecha_nacimiento ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Genero", (object?)pPaciente.genero ?? DBNull.Value);
-
-            return cmd.ExecuteNonQuery() > 0;
         }
     }
 }

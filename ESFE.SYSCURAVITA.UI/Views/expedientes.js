@@ -1,4 +1,6 @@
 ﻿let pacientesCache = [];
+let pacienteTempSeleccionado = null;
+let btnTempElement = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const rolGuardado = localStorage.getItem('usuarioRol');
@@ -6,10 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarEstadoBotones();
 });
 
-// Refresca el estado de los botones cuando la pestaña o vista recupera el foco
 window.addEventListener('focus', actualizarEstadoBotones);
+window.addEventListener('storage', actualizarEstadoBotones);
 
-// 1. Renderizado de tabla e identificación individual
+// Renderizado de tabla
 function renderizarTabla(pacientes) {
     if (pacientes) pacientesCache = pacientes;
     const table = document.getElementById('patientsTable');
@@ -30,21 +32,23 @@ function renderizarTabla(pacientes) {
         const nombreCompleto = p.nombreCompleto || `${nombres} ${apellidos}`.trim() || 'Sin Nombre';
         const dui = p.dui_documento || p.Dui_documento || p.dui || p.Dui || 'N/A';
 
-        // Identificador único compuesto para diferenciar pacientes aunque repitan código
         const uid = `${codigo}_${dui}_${nombreCompleto}`;
 
-        // Determinar si ESTE paciente específico ya está en la cola de espera
         const enEspera = listaEspera.some(item => {
-            const itemUid = item.uid || `${item.codigo_expediente || item.codigo}_${item.dui_documento || item.dui || 'N/A'}_${item.nombres}`;
-            return itemUid === uid;
+            const itemId = item.paciente_id || item.id;
+            const itemUid = item.uid || `${item.codigo_expediente || item.codigo}_${item.dui_documento || item.dui || 'N/A'}_${item.nombreCompleto || item.nombres}`;
+            return itemId === id || itemUid === uid;
         });
 
         const pData = {
             uid: uid,
             paciente_id: id,
+            id: id,
             codigo_expediente: codigo,
-            nombres: nombreCompleto,
+            codigo: codigo,
+            nombres: nombres,
             apellidos: apellidos,
+            nombreCompleto: nombreCompleto,
             dui_documento: dui,
             fecha_nacimiento: p.fecha_nacimiento || null
         };
@@ -61,10 +65,10 @@ function agregarFilaTabla(tbody, pData, enEspera) {
 
     newRow.innerHTML = `
         <td><b style="color: var(--primary);">${pData.codigo_expediente}</b></td>
-        <td><b>${pData.nombres}</b></td>
+        <td><b>${pData.nombreCompleto}</b></td>
         <td style="color: var(--text-muted);">${pData.dui_documento}</td>
         <td style="text-align: right;">
-            <button class="btn-action" ${disabledAttr} onclick="selectPatient(this, ${pJson})">
+            <button class="btn-action" ${disabledAttr} onclick="abrirModalEspecialidad(this, ${pJson})">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 ${btnText}
             </button>
@@ -78,38 +82,128 @@ function actualizarEstadoBotones() {
     }
 }
 
-// 2. Selección individual sin cambiar de vista (permite seleccionar múltiples)
-function selectPatient(btnElement, paciente) {
-    const banner = document.getElementById('selectionBanner');
-    const text = document.getElementById('selectedPatientText');
+// Modal y Especialidad
+function abrirModalEspecialidad(btnElement, paciente) {
+    pacienteTempSeleccionado = paciente;
+    btnTempElement = btnElement;
 
-    if (banner && text) {
-        text.textContent = `Paciente agregado a espera: ${paciente.codigo_expediente} - ${paciente.nombres}`;
-        banner.style.display = 'flex';
+    const edad = calcularEdad(paciente.fecha_nacimiento);
+
+    document.getElementById('modalPacienteNombre').innerText = `${paciente.codigo_expediente} - ${paciente.nombreCompleto}`;
+    document.getElementById('modalPacienteEdad').innerText = edad;
+
+    evaluarEspecialidadPorEdad(edad);
+
+    document.getElementById('modalEspecialidad').style.display = 'flex';
+}
+
+function calcularEdad(fechaNacimientoStr) {
+    if (!fechaNacimientoStr) return 18;
+    const nacimiento = new Date(fechaNacimientoStr);
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const mes = hoy.getMonth() - nacimiento.getMonth();
+
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+        edad--;
+    }
+    return edad < 0 ? 0 : edad;
+}
+
+function evaluarEspecialidadPorEdad(edad) {
+    const selectEsp = document.getElementById('selectEspecialidad');
+    if (!selectEsp) return;
+
+    const opcionPediatria = selectEsp.querySelector('option[value="2"]');
+
+    if (edad < 12) {
+        if (opcionPediatria) opcionPediatria.disabled = false;
+        selectEsp.value = "2";
+    } else {
+        if (opcionPediatria) opcionPediatria.disabled = true;
+        selectEsp.value = "1";
     }
 
-    let listaEspera = JSON.parse(localStorage.getItem('listaEspera') || '[]');
+    actualizarMontoVista();
+}
 
-    const yaExiste = listaEspera.some(item => item.uid === paciente.uid);
+function actualizarMontoVista() {
+    const select = document.getElementById('selectEspecialidad');
+    if (!select) return;
+    const opcion = select.options[select.selectedIndex];
+    const precio = opcion ? opcion.dataset.precio : "25.00";
+    document.getElementById('lblMontoPreview').innerText = `$${parseFloat(precio).toFixed(2)}`;
+}
+
+function closeEspecialidadModal() {
+    document.getElementById('modalEspecialidad').style.display = 'none';
+    pacienteTempSeleccionado = null;
+    btnTempElement = null;
+}
+
+// Confirmación de Cita y Envío
+function confirmarEnviarAConsulta() {
+    if (!pacienteTempSeleccionado) return;
+
+    const select = document.getElementById('selectEspecialidad');
+    const opcionSeleccionada = select.options[select.selectedIndex];
+    const especialidadNombre = opcionSeleccionada.text.split('(')[0].trim();
+    const montoConsulta = parseFloat(opcionSeleccionada.dataset.precio);
+
+    const datosConsulta = {
+        ...pacienteTempSeleccionado,
+        paciente_id: pacienteTempSeleccionado.paciente_id,
+        id: pacienteTempSeleccionado.paciente_id,
+        especialidad_id: parseInt(select.value),
+        especialidad_nombre: especialidadNombre,
+        monto_consulta: montoConsulta,
+        edad: document.getElementById('modalPacienteEdad').innerText || 'N/A'
+    };
+
+    let listaEspera = JSON.parse(localStorage.getItem('listaEspera') || '[]');
+    const yaExiste = listaEspera.some(item => (item.paciente_id || item.id) === datosConsulta.paciente_id);
 
     if (!yaExiste) {
-        listaEspera.push(paciente);
+        listaEspera.push(datosConsulta);
         localStorage.setItem('listaEspera', JSON.stringify(listaEspera));
     }
 
-    // Deshabilitar inmediatamente solo el botón seleccionado
-    if (btnElement) {
-        btnElement.disabled = true;
-        btnElement.style.opacity = '0.6';
-        btnElement.style.cursor = 'not-allowed';
-        btnElement.innerHTML = `
+    if (btnTempElement) {
+        btnTempElement.disabled = true;
+        btnTempElement.style.opacity = '0.6';
+        btnTempElement.style.cursor = 'not-allowed';
+        btnTempElement.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             En Espera
         `;
     }
+
+    const banner = document.getElementById('selectionBanner');
+    const text = document.getElementById('selectedPatientText');
+    if (banner && text) {
+        text.textContent = `Paciente enviado a espera: ${datosConsulta.codigo_expediente} - ${datosConsulta.nombreCompleto} (${especialidadNombre})`;
+        banner.style.display = 'flex';
+    }
+
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({
+            Accion: "CREAR_CONSULTA",
+            paciente_id: datosConsulta.paciente_id,
+            especialidad_id: datosConsulta.especialidad_id,
+            monto_consulta: datosConsulta.monto_consulta,
+            recepcionista_id: parseInt(localStorage.getItem('usuarioId') || '1')
+        }));
+
+        window.chrome.webview.postMessage(JSON.stringify({
+            Accion: "AGREGAR_A_ESPERA",
+            Paciente: datosConsulta
+        }));
+    }
+
+    closeEspecialidadModal();
 }
 
-// 3. Envío para crear expediente
+// Creación de Expediente
 function handleCreate(e) {
     e.preventDefault();
 
@@ -128,18 +222,17 @@ function handleCreate(e) {
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify(payload));
     }
+
+    openSuccessModal("El expediente ha sido registrado correctamente.");
+    const form = document.getElementById('createForm');
+    if (form) form.reset();
 }
 
-// 4. Utilidades generales
+// Navegación y Utilidades
 function navegar(accion) {
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(accion);
     }
-}
-
-function establecerUsuario(rol) {
-    localStorage.setItem('usuarioRol', rol);
-    aplicarPermisos(rol);
 }
 
 function filterTable() {
@@ -154,7 +247,6 @@ function filterTable() {
     }
 }
 
-// Control de Modales
 function openLogoutModal() { document.getElementById('logoutModal').style.display = 'flex'; }
 function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
 function confirmLogout() {
@@ -168,7 +260,6 @@ function openSuccessModal(mensaje) {
 }
 function closeSuccessModal() { document.getElementById('successModal').style.display = 'none'; }
 
-// Permisos por Rol
 function aplicarPermisos(rol) {
     const menuExpedientes = document.getElementById('menuExpedientes');
     const menuConsulta = document.getElementById('menuConsulta');

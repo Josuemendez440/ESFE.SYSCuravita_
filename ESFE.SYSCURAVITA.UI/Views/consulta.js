@@ -10,8 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarEstadoVista();
 });
 
-// Refrescar la lista de espera al recuperar el foco
+// Refrescar lista al cambiar de pestaña o enfoque
 window.addEventListener('focus', cargarListaEsperaLocal);
+window.addEventListener('storage', cargarListaEsperaLocal);
 
 // Receptor de mensajes WebView2 (C#)
 if (window.chrome && window.chrome.webview) {
@@ -19,10 +20,21 @@ if (window.chrome && window.chrome.webview) {
         const datos = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (datos.Accion === "CARGAR_HISTORIAL") {
             renderizarHistorial(datos.Historial);
-        } else if (datos.Accion === "CARGAR_LISTA_ESPERA" || datos.Accion === "CARGAR_EXPEDIENTES") {
-            const lista = datos.Lista || datos.Expedientes || datos.Pacientes || [];
-            localStorage.setItem('listaEspera', JSON.stringify(lista));
-            renderizarListaEspera(lista);
+        } else if (datos.Accion === "CARGAR_LISTA_ESPERA") {
+            const listaServidor = datos.Pacientes || [];
+            let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
+
+            // Combinar servidor y localStorage evitando duplicados por ID
+            listaServidor.forEach(p => {
+                const pId = p.paciente_id || p.id;
+                if (!listaLocal.some(item => (item.paciente_id || item.id) === pId)) {
+                    listaLocal.push(p);
+                }
+            });
+
+            listaLocal = filtrarListaEspera(listaLocal);
+            localStorage.setItem('listaEspera', JSON.stringify(listaLocal));
+            renderizarListaEspera(listaLocal);
         } else if (datos.Accion === "CONSULTA_GUARDADA") {
             if (datos.Exito) {
                 mostrarToast("Consulta procesada y agregada al historial", "exito");
@@ -47,7 +59,6 @@ function mostrarToast(mensaje, tipo = "exito") {
     }, 3000);
 }
 
-// Controla la visibilidad del área de trabajo
 function actualizarEstadoVista() {
     const emptyWorkspace = document.getElementById('emptyWorkspace');
     const workspacePanel = document.getElementById('workspacePanel');
@@ -61,19 +72,23 @@ function actualizarEstadoVista() {
     }
 }
 
-// Cargar la lista de espera local filtrando registros inválidos
-function cargarListaEsperaLocal() {
-    if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_LISTA_ESPERA" }));
-    }
-
-    let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
-    listaLocal = listaLocal.filter(p => {
+function filtrarListaEspera(lista) {
+    return (lista || []).filter(p => {
+        if (!p) return false;
         const codigo = p.codigo_expediente || p.codigo || '';
         return codigo !== 'PAC-00' && codigo !== '' && codigo !== 'N/A';
     });
+}
+
+function cargarListaEsperaLocal() {
+    let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
+    listaLocal = filtrarListaEspera(listaLocal);
 
     renderizarListaEspera(listaLocal);
+
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_PACIENTES" }));
+    }
 }
 
 function renderizarListaEspera(pacientes) {
@@ -82,19 +97,25 @@ function renderizarListaEspera(pacientes) {
     lista.innerHTML = '';
 
     if (!pacientes || pacientes.length === 0) {
-        lista.innerHTML = `<li style="padding:20px; color:var(--text-muted); font-size:13px; text-align:center;">No hay registros</li>`;
+        lista.innerHTML = `<li style="padding:20px; color:var(--text-muted); font-size:13px; text-align:center;">No hay pacientes en espera</li>`;
         return;
     }
 
     pacientes.forEach((p) => {
         const li = document.createElement('li');
         li.className = 'queue-item';
-        if (pacienteSeleccionadoId && (p.paciente_id === pacienteSeleccionadoId || p.id === pacienteSeleccionadoId)) {
+        const pId = p.paciente_id || p.id;
+        if (pacienteSeleccionadoId && pId === pacienteSeleccionadoId) {
             li.classList.add('active');
         }
+
+        const nombreMostrar = p.nombreCompleto || `${p.nombres || ''} ${p.apellidos || ''}`.trim() || 'Sin Nombre';
+        const especialidadTag = p.especialidad_nombre ? `<span class="badge-urg">${p.especialidad_nombre}</span>` : '';
+
         li.onclick = () => solicitarConfirmacionAceptar(p, li);
         li.innerHTML = `
-            <b>${p.nombres} ${p.apellidos || ''}</b>
+            ${especialidadTag}
+            <b>${nombreMostrar}</b>
             <span style="color:var(--text-muted); font-size:11px;">Exp: ${p.codigo_expediente || p.codigo || 'N/A'}</span>
         `;
         lista.appendChild(li);
@@ -120,20 +141,21 @@ function confirmarAceptarPaciente() {
 
     pacienteSeleccionadoId = p.paciente_id || p.id || 0;
 
-    document.getElementById('lblNombrePaciente').innerText = `${p.nombres} ${p.apellidos || ''}`;
+    const nombreMostrar = p.nombreCompleto || `${p.nombres || ''} ${p.apellidos || ''}`.trim();
+    document.getElementById('lblNombrePaciente').innerText = nombreMostrar;
     document.getElementById('lblExpediente').innerText = p.codigo_expediente || p.codigo || 'N/A';
 
     if (p.fecha_nacimiento) {
         const fechaNac = new Date(p.fecha_nacimiento);
         const edad = new Date().getFullYear() - fechaNac.getFullYear();
-        document.getElementById('lblEdad').innerText = edad;
+        document.getElementById('lblEdad').innerText = isNaN(edad) ? (p.edad || 'N/A') : edad;
     } else {
         document.getElementById('lblEdad').innerText = p.edad || 'N/A';
     }
 
     const modalTitle = document.querySelector('.history-modal-title');
     const modalSub = document.querySelector('.history-modal-sub');
-    if (modalTitle) modalTitle.innerText = `Expediente de ${p.nombres} ${p.apellidos || ''}`;
+    if (modalTitle) modalTitle.innerText = `Expediente de ${nombreMostrar}`;
     if (modalSub) modalSub.innerText = `Código: ${p.codigo_expediente || p.codigo || 'N/A'}`;
 
     obtenerHistorialCompleto();
@@ -141,13 +163,12 @@ function confirmarAceptarPaciente() {
     closeAcceptModal();
 }
 
-// Historial
 function obtenerHistorialCompleto() {
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({
             Accion: "OBTENER_HISTORIAL",
             PacienteId: pacienteSeleccionadoId,
-            Codigo: document.getElementById('lblExpediente').innerText
+            codigoExpediente: document.getElementById('lblExpediente').innerText
         }));
     } else {
         renderizarHistorial([]);
@@ -182,7 +203,6 @@ function renderizarHistorial(historialServidor) {
     `).join('');
 }
 
-// Gestión de Receta
 function agregarMedicamentoTabla() {
     const inputNombre = document.getElementById('inputMedicamentoNombre');
     const inputDosis = document.getElementById('inputMedicamentoDosis');
@@ -197,8 +217,8 @@ function agregarMedicamentoTabla() {
 
     listaReceta.push({ medicamento: nombre, indicaciones: dosis });
 
-    inputNombre.value = '';
-    inputDosis.value = '';
+    if (inputNombre) inputNombre.value = '';
+    if (inputDosis) inputDosis.value = '';
 
     renderizarTablaReceta();
 }
@@ -230,7 +250,6 @@ function renderizarTablaReceta() {
     `).join('');
 }
 
-// Finalización Única y Remoción de Cola de Espera
 function finalizarConsulta() {
     if (!pacientePendiente || !pacienteSeleccionadoId) {
         mostrarToast("Seleccione un expediente de la lista antes de finalizar.", "error");
@@ -248,7 +267,6 @@ function finalizarConsulta() {
     const fechaActual = new Date().toLocaleDateString('es-ES');
     const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-    // 1. Guardar en el historial local
     const nuevaEntradaHistorial = {
         fecha: fechaActual,
         hora: horaActual,
@@ -262,38 +280,27 @@ function finalizarConsulta() {
     historialExistente.unshift(nuevaEntradaHistorial);
     localStorage.setItem(`historial_${pacienteSeleccionadoId}`, JSON.stringify(historialExistente));
 
-    // 2. Notificar al Backend (C#)
-    const paquete = {
-        Accion: "GUARDAR_CONSULTA",
-        accion: "guardar_consulta",
-        PacienteId: pacienteSeleccionadoId,
-        codigo_expediente: pacientePendiente.codigo_expediente || pacientePendiente.codigo,
-        Diagnostico: diag,
-        Receta: listaReceta
-    };
-
     if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(JSON.stringify(paquete));
+        window.chrome.webview.postMessage(JSON.stringify({
+            Accion: "GUARDAR_CONSULTA",
+            PacienteId: pacienteSeleccionadoId,
+            codigoExpediente: pacientePendiente.codigo_expediente || pacientePendiente.codigo,
+            Diagnostico: diag
+        }));
+
+        window.chrome.webview.postMessage(JSON.stringify({
+            Accion: "REMOVER_DE_CONSULTA",
+            PacienteId: pacienteSeleccionadoId
+        }));
     }
 
     mostrarToast("Consulta guardada y expediente liberado", "exito");
 
-    // 3. Remover paciente de la lista de espera (localStorage + DOM)
     let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
-    const targetUid = pacientePendiente.uid;
-    const targetCode = pacientePendiente.codigo_expediente || pacientePendiente.codigo;
-    const targetId = pacienteSeleccionadoId;
-
-    listaLocal = listaLocal.filter(p => {
-        if (targetUid && p.uid) return p.uid !== targetUid;
-        if (targetId && (p.paciente_id || p.id)) return (p.paciente_id || p.id) !== targetId;
-        return (p.codigo_expediente || p.codigo) !== targetCode;
-    });
-
+    listaLocal = listaLocal.filter(p => (p.paciente_id || p.id) !== pacienteSeleccionadoId);
     localStorage.setItem('listaEspera', JSON.stringify(listaLocal));
     renderizarListaEspera(listaLocal);
 
-    // 4. Limpiar workspace y resetear estado
     limpiarWorkspaceConsulta();
 }
 
@@ -319,7 +326,6 @@ function limpiarWorkspaceConsulta() {
     actualizarEstadoVista();
 }
 
-// Modales y Navegación
 function openHistoryModal() {
     if (!pacienteSeleccionadoId) {
         mostrarToast("Seleccione y acepte un expediente para consultar su historial.", "error");

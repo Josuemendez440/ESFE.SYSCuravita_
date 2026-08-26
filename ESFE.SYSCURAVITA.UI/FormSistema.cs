@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -14,6 +16,9 @@ namespace ESFE.SYSCURAVITA.UI
     {
         private readonly AccesosEN? _usuario;
         private bool _esCierreDeSesion;
+
+        // Lista de espera en memoria para la pantalla de Consulta Médica
+        private static readonly List<PacienteEN> _pacientesEnEspera = new();
 
         public FormSistema()
         {
@@ -116,17 +121,26 @@ namespace ESFE.SYSCURAVITA.UI
 
                     if (accion == "guardar_expediente")
                     {
+                        DateTime? fechaNacimiento = null;
+                        if (root.TryGetProperty("fecha_nacimiento", out var fNac) && !string.IsNullOrWhiteSpace(fNac.GetString()))
+                        {
+                            if (DateTime.TryParse(fNac.GetString(), out DateTime fechaParseada))
+                            {
+                                fechaNacimiento = fechaParseada;
+                            }
+                        }
+
                         var nuevo = new PacienteEN
                         {
                             nombres = root.TryGetProperty("nombres", out var n) ? n.GetString() ?? string.Empty : string.Empty,
                             apellidos = root.TryGetProperty("apellidos", out var a) ? a.GetString() ?? string.Empty : string.Empty,
                             dui_documento = root.TryGetProperty("dui_documento", out var d) ? d.GetString() ?? string.Empty : string.Empty,
-                            telefono = root.TryGetProperty("telefono", out var t) ? t.GetString() ?? string.Empty : string.Empty
+                            telefono = root.TryGetProperty("telefono", out var t) ? t.GetString() ?? string.Empty : string.Empty,
+                            fecha_nacimiento = fechaNacimiento
                         };
 
                         if (PacienteLN.Guardar(nuevo))
                         {
-                            MessageBox.Show("Expediente guardado exitosamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
                             await CargarTablaPacientesAsync();
                             await webView21.ExecuteScriptAsync("document.getElementById('createForm')?.reset();");
                         }
@@ -134,6 +148,29 @@ namespace ESFE.SYSCURAVITA.UI
                         {
                             MessageBox.Show("No se pudo guardar el expediente. Revise los campos ingresados.", "Atención", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         }
+                    }
+                    else if (accion == "ENVIAR_A_CONSULTA")
+                    {
+                        int pacienteId = 0;
+                        if (root.TryGetProperty("pacienteId", out var pId)) pacienteId = pId.GetInt32();
+                        else if (root.TryGetProperty("PacienteId", out var pIdMay)) pacienteId = pIdMay.GetInt32();
+
+                        var todosPacientes = PacienteLN.ObtenerTodos();
+                        var paciente = todosPacientes.FirstOrDefault(p => p.paciente_id == pacienteId);
+
+                        if (paciente != null && !_pacientesEnEspera.Any(p => p.paciente_id == paciente.paciente_id))
+                        {
+                            _pacientesEnEspera.Add(paciente);
+                        }
+                    }
+                    else if (accion == "REMOVER_DE_CONSULTA")
+                    {
+                        int pacienteId = 0;
+                        if (root.TryGetProperty("pacienteId", out var pId)) pacienteId = pId.GetInt32();
+                        else if (root.TryGetProperty("PacienteId", out var pIdMay)) pacienteId = pIdMay.GetInt32();
+
+                        _pacientesEnEspera.RemoveAll(p => p.paciente_id == pacienteId);
+                        await CargarListaEsperaConsultaAsync();
                     }
                     else if (accion == "OBTENER_PACIENTES")
                     {
@@ -195,7 +232,6 @@ namespace ESFE.SYSCURAVITA.UI
                             MontoTotal = root.TryGetProperty("MontoTotal", out var mnt) ? mnt.GetDecimal() : 0m
                         };
 
-                        // Recibe el RespuestaPagoDTO con el estado e información de la transacción
                         RespuestaPagoDTO respuesta = FacturaLN.ProcesarCobro(solicitud);
 
                         string jsonRespuesta = JsonSerializer.Serialize(respuesta);
@@ -218,11 +254,10 @@ namespace ESFE.SYSCURAVITA.UI
 
         private async Task CargarListaEsperaConsultaAsync()
         {
-            var lista = PacienteLN.ObtenerTodos();
             var respuesta = new
             {
                 Accion = "CARGAR_LISTA_ESPERA",
-                Pacientes = lista
+                Pacientes = _pacientesEnEspera
             };
             string jsonRespuesta = JsonSerializer.Serialize(respuesta);
             webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
