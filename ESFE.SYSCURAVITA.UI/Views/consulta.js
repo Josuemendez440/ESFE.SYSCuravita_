@@ -267,6 +267,7 @@ function finalizarConsulta() {
     const fechaActual = new Date().toLocaleDateString('es-ES');
     const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
+    // 1. Guardar en historial médico local
     const nuevaEntradaHistorial = {
         fecha: fechaActual,
         hora: horaActual,
@@ -280,6 +281,24 @@ function finalizarConsulta() {
     historialExistente.unshift(nuevaEntradaHistorial);
     localStorage.setItem(`historial_${pacienteSeleccionadoId}`, JSON.stringify(historialExistente));
 
+    // 2. Registrar paciente en la cola de Cobros Pendientes (Módulo de Pago)
+    const nombreCompleto = pacientePendiente.nombreCompleto || `${pacientePendiente.nombres || ''} ${pacientePendiente.apellidos || ''}`.trim();
+    const nuevoCobro = {
+        paciente_id: pacienteSeleccionadoId,
+        codigo_expediente: pacientePendiente.codigo_expediente || pacientePendiente.codigo || 'N/A',
+        nombreCompleto: nombreCompleto,
+        especialidad_nombre: pacientePendiente.especialidad_nombre || pacientePendiente.especialidad || 'Consulta Médica',
+        monto_consulta: pacientePendiente.monto_consulta || pacientePendiente.monto || 35.00
+    };
+
+    let listaPagos = JSON.parse(localStorage.getItem('listaPagos') || '[]');
+    const yaExiste = listaPagos.some(p => (p.paciente_id || p.id) === nuevoCobro.paciente_id);
+    if (!yaExiste) {
+        listaPagos.push(nuevoCobro);
+        localStorage.setItem('listaPagos', JSON.stringify(listaPagos));
+    }
+
+    // 3. Notificar a C#
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({
             Accion: "GUARDAR_CONSULTA",
@@ -294,8 +313,9 @@ function finalizarConsulta() {
         }));
     }
 
-    mostrarToast("Consulta guardada y expediente liberado", "exito");
+    mostrarToast("Consulta procesada y enviada a Módulo de Pago", "exito");
 
+    // 4. Remover paciente de la lista de espera local de consulta
     let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
     listaLocal = listaLocal.filter(p => (p.paciente_id || p.id) !== pacienteSeleccionadoId);
     localStorage.setItem('listaEspera', JSON.stringify(listaLocal));

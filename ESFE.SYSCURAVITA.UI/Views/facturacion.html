@@ -6,18 +6,44 @@
     <title>Curavita - Módulo de Pago</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="facturacion.css">
+    <style>
+        .queue-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0 0;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .queue-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #FAFCFC;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+            .queue-item:hover {
+                border-color: var(--primary);
+                background: var(--primary-light);
+            }
+
+            .queue-item.active {
+                border-color: var(--primary);
+                background: var(--primary);
+                color: white !important;
+            }
+
+                .queue-item.active small, .queue-item.active span {
+                    color: #e3ecef !important;
+                }
+    </style>
 </head>
 <body>
 
-    <div class="emergency-overlay" id="emergencyOverlay">
-        <div class="emergency-popup">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-            <h2>CONTROL DE EMERGENCIA</h2>
-            <p>ALERTA INVASIVA: PACIENTE CRÍTICO INGRESANDO A CAMILLA 1.<br>SE SOLICITA ASISTENCIA INMEDIATA.</p>
-            <button class="btn-close-emergency" onclick="dismissEmergency()">Cerrar Alerta e Interrupción</button>
-        </div>
-    </div>
-
+    <!-- Modal de Cierre de Sesión -->
     <div id="logoutModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-icon">
@@ -36,6 +62,7 @@
         </div>
     </div>
 
+    <!-- Menú Lateral -->
     <nav class="sidebar">
         <div class="sidebar-brand">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
@@ -70,156 +97,84 @@
         </div>
     </nav>
 
+    <!-- Área de Trabajo Principal -->
     <main class="main-workspace">
         <div class="billing-grid">
 
+            <!-- Panel Izquierdo: Lista de Espera de Cobros -->
             <section class="card-panel">
                 <div class="panel-header">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    <h2 class="panel-title">Detalles de Facturación</h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    <h2 class="panel-title">Cobros Pendientes</h2>
                 </div>
+                <div class="section-subtitle">Selecciona un paciente para cobro</div>
 
-                <div class="emergency-badge">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    <span>Alta de Emergencia - Cargos por medicamentos e insumos aplicados en el establecimiento.</span>
-                </div>
-
-                <div class="section-subtitle">1. Datos del Comprobante</div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Tipo de Comprobante</label>
-                        <input type="text" class="form-control" value="Factura de Consumidor Final" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>N° Factura (Correlativo)</label>
-                        <input type="text" class="form-control" value="FAC-0002841" readonly>
-                    </div>
-                </div>
-                <div class="form-group" style="max-width: 200px;">
-                    <label>Fecha de Emisión</label>
-                    <input type="text" class="form-control" value="28/06/2026" readonly>
-                </div>
-
-                <div class="section-subtitle" style="margin-top: 24px;">2. Datos del Paciente / Cliente</div>
-                <div class="form-group">
-                    <label>Nombre Completo</label>
-                    <input type="text" class="form-control" value="Carlos Ortiz Espinoza" readonly>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Documento de Identidad (DUI)</label>
-                        <input type="text" class="form-control" value="03241568-9" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>Teléfono</label>
-                        <input type="text" class="form-control" value="7211-8899" readonly>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Dirección del Paciente</label>
-                    <input type="text" class="form-control" value="Colonia Escalón, San Salvador" readonly>
-                </div>
-
-                <div class="section-subtitle" style="margin-top: 24px;">3. Detalle de Medicamentos e Insumos de Emergencia</div>
-                <table class="items-table">
-                    <thead>
-                        <tr>
-                            <th>Descripción del Fármaco / Suministro</th>
-                            <th style="width: 70px; text-align: center;">Cant.</th>
-                            <th style="width: 100px; text-align: right;">Precio Unit.</th>
-                            <th style="width: 100px; text-align: right;">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Solución Salina Normal 0.9% (100ml)</td>
-                            <td style="text-align: center;">2</td>
-                            <td style="text-align: right;">$6.50</td>
-                            <td style="text-align: right; font-weight: 600;">$13.00</td>
-                        </tr>
-                        <tr>
-                            <td>Epinefrina 1mg/ml (Ampolla)</td>
-                            <td style="text-align: center;">1</td>
-                            <td style="text-align: right;">$8.00</td>
-                            <td style="text-align: right; font-weight: 600;">$8.00</td>
-                        </tr>
-                        <tr>
-                            <td>Kit de Catéter Intravenoso y Venoclisis</td>
-                            <td style="text-align: center;">1</td>
-                            <td style="text-align: right;">$12.50</td>
-                            <td style="text-align: right; font-weight: 600;">$12.50</td>
-                        </tr>
-                        <tr>
-                            <td>Inyección Intramuscular Complementaria</td>
-                            <td style="text-align: center;">1</td>
-                            <td style="text-align: right;">$5.00</td>
-                            <td style="text-align: right; font-weight: 600;">$5.00</td>
-                        </tr>
-                        <tr>
-                            <td>Monitoreo de Signos Vitales Continuo</td>
-                            <td style="text-align: center;">1</td>
-                            <td style="text-align: right;">$15.00</td>
-                            <td style="text-align: right; font-weight: 600;">$15.00</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <ul id="listaPagosPendientes" class="queue-list">
+                    <!-- Pacientes cargados dinámicamente -->
+                </ul>
             </section>
 
+            <!-- Panel Derecho: Formulario de Cobro -->
             <section class="card-panel">
                 <div class="panel-header">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                    <h2 class="panel-title">Resumen de Cuenta</h2>
+                    <h2 class="panel-title">Resumen y Pago</h2>
                 </div>
 
-                <div class="form-row" style="margin-bottom: 20px;">
-                    <div class="form-group" style="grid-column: span 2;">
-                        <label>Código de Emergencia</label>
-                        <input type="text" class="form-control" value="PAC-0421 (URG)" readonly style="font-weight: 700; color: var(--danger); background: #fff;">
+                <div id="emptyWorkspacePago" style="text-align: center; padding: 40px 10px; color: var(--text-muted);">
+                    <p>Selecciona un paciente del panel izquierdo para procesar su cobro.</p>
+                </div>
+
+                <div id="workspacePanelPago" style="display: none; flex-direction: column; gap: 16px;">
+                    <div class="form-group">
+                        <label>Paciente Seleccionado</label>
+                        <input type="text" id="lblPagoPaciente" class="form-control" readonly style="font-weight: 700;">
                     </div>
-                </div>
 
-                <div class="summary-row">
-                    <span>Consulta Médica de Emergencia</span>
-                    <span style="font-weight: 600;">$45.00</span>
-                </div>
-                <div class="summary-row">
-                    <span>Total de Medicamentos e Insumos</span>
-                    <span style="font-weight: 600;">$53.50</span>
-                </div>
-                <div class="summary-row" style="border-bottom: none;">
-                    <span>Subtotal Neto</span>
-                    <span style="font-weight: 600;">$98.50</span>
-                </div>
-                <div class="summary-row" style="border-bottom: none; padding-top: 0; color: var(--text-muted);">
-                    <span>IVA Incluido (13%)</span>
-                    <span>$12.80</span>
-                </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>N° Factura</label>
+                            <input type="text" id="inputNumFactura" class="form-control" readonly style="font-weight: 700; color: var(--primary);">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Emisión</label>
+                            <input type="text" id="inputFechaPago" class="form-control" readonly>
+                        </div>
+                    </div>
 
-                <div class="summary-total">
-                    <span style="font-size: 14px; font-weight: 700; text-transform: uppercase; color: var(--text-main);">Total Neto a Pagar</span>
-                    <span style="font-size: 24px; font-weight: 800;">$111.30</span>
-                </div>
+                    <div class="summary-total" style="margin-top: 4px; padding: 12px 0;">
+                        <span style="font-size: 13px; font-weight: 700; text-transform: uppercase;">Total Consulta</span>
+                        <span id="lblPagoMontoTotal" style="font-size: 24px; font-weight: 800;">$0.00</span>
+                    </div>
 
-                <div class="form-group">
-                    <label>Método de Pago Seleccionado</label>
-                </div>
-                <div class="payment-methods">
-                    <button type="button" class="method-btn active" id="btnEfectivo" onclick="selectMethod('efectivo')">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>
-                        Efectivo
+                    <div class="form-group">
+                        <label>Método de Pago</label>
+                    </div>
+                    <div class="payment-methods">
+                        <button type="button" class="method-btn active" id="btnEfectivo" onclick="selectMethod('efectivo')">
+                            Efectivo
+                        </button>
+                        <button type="button" class="method-btn" id="btnTarjeta" onclick="selectMethod('tarjeta')">
+                            Tarjeta
+                        </button>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Monto Recibido ($)</label>
+                            <input type="number" step="0.01" id="inputMontoRecibido" class="form-control" oninput="calcularCambio()" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Cambio ($)</label>
+                            <input type="text" id="inputCambio" class="form-control" readonly style="font-weight: 700; color: #27ae60;" value="$0.00">
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn-submit" onclick="procesarPago()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        Finalizar e Imprimir Factura
                     </button>
-                    <button type="button" class="method-btn" id="btnTarjeta" onclick="selectMethod('tarjeta')">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-                        Tarjeta
-                    </button>
                 </div>
-
-                <button class="btn-submit" onclick="alert('Pago procesado correctamente e impresión de factura de alta iniciada.');">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                    Procesar Factura e Imprimir Alta
-                </button>
-
-                <button class="btn-simulate" onclick="simulateIncomingEmergency()">Simular Alerta de Emergencia</button>
             </section>
 
         </div>
