@@ -6,12 +6,60 @@ document.addEventListener('DOMContentLoaded', () => {
     const rolGuardado = localStorage.getItem('usuarioRol');
     if (rolGuardado) aplicarPermisos(rolGuardado);
     actualizarEstadoBotones();
+    aplicarValidacionesCampos();
 });
 
 window.addEventListener('focus', actualizarEstadoBotones);
 window.addEventListener('storage', actualizarEstadoBotones);
 
-// Renderizado de tabla
+// Escuchador de mensajes desde C# (WebView2)
+if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.addEventListener('message', function (event) {
+        const datos = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+
+        if (datos.Accion === "CARGAR_PACIENTES" || datos.Accion === "EXPEDIENTE_GUARDADO") {
+            if (datos.Pacientes) {
+                renderizarTabla(datos.Pacientes);
+            }
+        } else if (datos.Accion === "REGISTRO_ELIMINADO") {
+            const idBorrado = datos.PacienteId;
+            pacientesCache = pacientesCache.filter(p => (p.paciente_id || p.id) !== idBorrado);
+            renderizarTabla(pacientesCache);
+
+            let listaEspera = JSON.parse(localStorage.getItem('listaEspera') || '[]');
+            listaEspera = listaEspera.filter(p => (p.paciente_id || p.id) !== idBorrado);
+            localStorage.setItem('listaEspera', JSON.stringify(listaEspera));
+            localStorage.removeItem(`historial_${idBorrado}`);
+        }
+    });
+}
+
+function aplicarValidacionesCampos() {
+    const inputsSoloTexto = document.querySelectorAll('#inputNombres, #inputApellidos');
+    inputsSoloTexto.forEach(input => {
+        if (!input) return;
+        input.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+        });
+    });
+
+    const inputsNumericos = document.querySelectorAll('#inputDUI, #inputTelefono');
+    inputsNumericos.forEach(input => {
+        if (!input) return;
+        input.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^0-9-]/g, '');
+        });
+    });
+
+    const inputsAlfanumericos = document.querySelectorAll('#searchInput');
+    inputsAlfanumericos.forEach(input => {
+        if (!input) return;
+        input.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s.,/()-]/g, '');
+        });
+    });
+}
+
 function renderizarTabla(pacientes) {
     if (pacientes) pacientesCache = pacientes;
     const table = document.getElementById('patientsTable');
@@ -82,7 +130,31 @@ function actualizarEstadoBotones() {
     }
 }
 
-// Modal y Especialidad
+function handleCreate(e) {
+    e.preventDefault();
+
+    const inputTel = document.getElementById('inputTelefono');
+    const inputFecha = document.getElementById('inputFechaNacimiento');
+
+    const payload = {
+        accion: "guardar_expediente",
+        nombres: document.getElementById('inputNombres').value,
+        apellidos: document.getElementById('inputApellidos').value,
+        dui_documento: document.getElementById('inputDUI').value,
+        telefono: inputTel ? inputTel.value : "",
+        fecha_nacimiento: inputFecha ? inputFecha.value : null
+    };
+
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify(payload));
+    }
+
+    openSuccessModal("El expediente ha sido registrado correctamente.");
+
+    const form = document.getElementById('createForm');
+    if (form) form.reset();
+}
+
 function abrirModalEspecialidad(btnElement, paciente) {
     pacienteTempSeleccionado = paciente;
     btnTempElement = btnElement;
@@ -141,7 +213,6 @@ function closeEspecialidadModal() {
     btnTempElement = null;
 }
 
-// Confirmación de Cita y Envío
 function confirmarEnviarAConsulta() {
     if (!pacienteTempSeleccionado) return;
 
@@ -203,32 +274,6 @@ function confirmarEnviarAConsulta() {
     closeEspecialidadModal();
 }
 
-// Creación de Expediente
-function handleCreate(e) {
-    e.preventDefault();
-
-    const inputTel = document.getElementById('inputTelefono');
-    const inputFecha = document.getElementById('inputFechaNacimiento');
-
-    const payload = {
-        accion: "guardar_expediente",
-        nombres: document.getElementById('inputNombres').value,
-        apellidos: document.getElementById('inputApellidos').value,
-        dui_documento: document.getElementById('inputDUI').value,
-        telefono: inputTel ? inputTel.value : "",
-        fecha_nacimiento: inputFecha ? inputFecha.value : null
-    };
-
-    if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(JSON.stringify(payload));
-    }
-
-    openSuccessModal("El expediente ha sido registrado correctamente.");
-    const form = document.getElementById('createForm');
-    if (form) form.reset();
-}
-
-// Navegación y Utilidades
 function navegar(accion) {
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(accion);

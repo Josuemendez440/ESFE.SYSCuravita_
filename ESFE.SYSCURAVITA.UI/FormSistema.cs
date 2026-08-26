@@ -17,7 +17,6 @@ namespace ESFE.SYSCURAVITA.UI
         private readonly AccesosEN? _usuario;
         private bool _esCierreDeSesion;
 
-        // Lista de espera en memoria para la pantalla de Consulta Médica
         private static readonly List<PacienteEN> _pacientesEnEspera = new();
 
         public FormSistema()
@@ -38,6 +37,12 @@ namespace ESFE.SYSCURAVITA.UI
             if (_usuario == null) return;
 
             await webView21.EnsureCoreWebView2Async(null);
+
+            await webView21.CoreWebView2.Profile.ClearBrowsingDataAsync(
+                CoreWebView2BrowsingDataKinds.CacheStorage |
+                CoreWebView2BrowsingDataKinds.LocalStorage |
+                CoreWebView2BrowsingDataKinds.WebSql
+            );
 
             webView21.CoreWebView2.Settings.IsStatusBarEnabled = false;
             webView21.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
@@ -149,6 +154,27 @@ namespace ESFE.SYSCURAVITA.UI
                             MessageBox.Show("No se pudo guardar el expediente. Revise los campos ingresados.", "Atención", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         }
                     }
+                    else if (accion == "ELIMINAR_PACIENTE")
+                    {
+                        int pacienteId = 0;
+                        if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
+                        else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
+
+                        if (PacienteLN.Eliminar(pacienteId))
+                        {
+                            _pacientesEnEspera.RemoveAll(p => p.paciente_id == pacienteId);
+
+                            var eventoEliminado = new
+                            {
+                                Accion = "REGISTRO_ELIMINADO",
+                                PacienteId = pacienteId
+                            };
+
+                            string jsonNotificacion = JsonSerializer.Serialize(eventoEliminado);
+                            webView21.CoreWebView2.PostWebMessageAsJson(jsonNotificacion);
+                            await CargarTablaPacientesAsync();
+                        }
+                    }
                     else if (accion == "ENVIAR_A_CONSULTA")
                     {
                         int pacienteId = 0;
@@ -190,7 +216,15 @@ namespace ESFE.SYSCURAVITA.UI
                         if (root.TryGetProperty("Diagnostico", out var diag)) diagnostico = diag.GetString() ?? string.Empty;
                         else if (root.TryGetProperty("diagnostico", out var dMin)) diagnostico = dMin.GetString() ?? string.Empty;
 
-                        bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico);
+                        // Extracción de Signos Vitales y Receta enviados desde JavaScript
+                        string pa = root.TryGetProperty("PA", out var pPA) ? pPA.GetString() ?? "N/A" : "N/A";
+                        string fc = root.TryGetProperty("FC", out var pFC) ? pFC.GetString() ?? "N/A" : "N/A";
+                        string temp = root.TryGetProperty("Temperatura", out var pTemp) ? pTemp.GetString() ?? "N/A" : "N/A";
+                        string peso = root.TryGetProperty("Peso", out var pPeso) ? pPeso.GetString() ?? "N/A" : "N/A";
+                        string receta = root.TryGetProperty("Receta", out var pReceta) ? pReceta.GetString() ?? "" : "";
+
+                        // Se envían todos los parámetros completos a la Capa de Negocio / DAL
+                        bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico, pa, fc, temp, peso, receta);
 
                         var respuesta = new
                         {
@@ -265,24 +299,8 @@ namespace ESFE.SYSCURAVITA.UI
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            base.OnFormClosing(e);
+        { base.OnFormClosing(e); if (_esCierreDeSesion) { if (Application.OpenForms["Form1"] is Form1 loginForm) { loginForm.LimpiarYLlamar(); } } else { Application.Exit(); } }
 
-            if (_esCierreDeSesion)
-            {
-                if (Application.OpenForms["Form1"] is Form1 loginForm)
-                {
-                    loginForm.LimpiarYLlamar();
-                }
-            }
-            else
-            {
-                Application.Exit();
-            }
-        }
-
-        private void webView21_Click(object? sender, EventArgs e)
-        {
-        }
+        private void webView21_Click(object? sender, EventArgs e) { }
     }
 }

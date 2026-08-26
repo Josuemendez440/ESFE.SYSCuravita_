@@ -15,5 +15,10 @@ namespace ESFE.SYSCURAVITA.LN
         {
             return PacienteDAL.ObtenerTodos();
         }
+
+        public static bool Eliminar(int pacienteId)
+        {
+            return PacienteDAL.Eliminar(pacienteId);
+        }
     }
 }

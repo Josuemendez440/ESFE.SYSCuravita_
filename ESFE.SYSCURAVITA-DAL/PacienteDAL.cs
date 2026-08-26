@@ -63,5 +63,18 @@ namespace ESFE.SYSCURAVITA.DAL
 
             return lista;
         }
+
+        public static bool Eliminar(int pacienteId)
+        {
+            string queryDelete = "DELETE FROM Pacientes WHERE paciente_id = @paciente_id";
+
+            using var conexion = ConexionDAL.ObtenerConexion();
+            using var cmd = new SqlCommand(queryDelete, conexion);
+
+            cmd.Parameters.AddWithValue("@paciente_id", pacienteId);
+
+            conexion.Open();
+            return cmd.ExecuteNonQuery() > 0;
+        }
     }
 }

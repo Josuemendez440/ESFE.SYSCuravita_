@@ -141,7 +141,7 @@
             </div>
         </section>
 
-        <!-- Área de Trabajo / Consulta Médica (Se muestra ÚNICAMENTE al seleccionar un expediente) -->
+        <!-- Área de Trabajo / Consulta Médica -->
         <section class="workspace-panel" id="workspacePanel" style="display: none;">
 
             <div class="workspace-card">
@@ -163,16 +163,40 @@
                 </div>
 
                 <div class="vitals-grid">
-                    <div class="vital-box"><span>P. Arterial</span><p>--/-- mmHg</p></div>
-                    <div class="vital-box"><span>F. Cardíaca</span><p>-- lpm</p></div>
-                    <div class="vital-box"><span>Temperatura</span><p>-- °C</p></div>
-                    <div class="vital-box"><span>Peso</span><p>-- Kg</p></div>
+                    <div class="vital-box">
+                        <span>P. Arterial</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <input type="text" id="inputPA" placeholder="120/80" class="form-control" style="padding: 6px 10px; font-weight: 700; background: #fff;">
+                            <small style="font-weight: 600; color: var(--text-muted);">mmHg</small>
+                        </div>
+                    </div>
+                    <div class="vital-box">
+                        <span>F. Cardíaca</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <input type="text" id="inputFC" placeholder="80" class="form-control" style="padding: 6px 10px; font-weight: 700; background: #fff;">
+                            <small style="font-weight: 600; color: var(--text-muted);">lpm</small>
+                        </div>
+                    </div>
+                    <div class="vital-box">
+                        <span>Temperatura</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <input type="text" id="inputTemp" placeholder="36.5" class="form-control" style="padding: 6px 10px; font-weight: 700; background: #fff;">
+                            <small style="font-weight: 600; color: var(--text-muted);">°C</small>
+                        </div>
+                    </div>
+                    <div class="vital-box">
+                        <span>Peso</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <input type="text" id="inputPeso" placeholder="70" class="form-control" style="padding: 6px 10px; font-weight: 700; background: #fff;">
+                            <small style="font-weight: 600; color: var(--text-muted);">Kg</small>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="workspace-card">
                 <div class="panel-title">Diagnóstico Clínico Manual</div>
-                <textarea id="txtDiagnostico" class="form-control" rows="4" placeholder="Escriba aquí la impresión diagnóstica del cuadro evolutivo..."></textarea>
+                <textarea id="txtDiagnostico" class="form-control" rows="4"></textarea>
             </div>
 
             <div class="workspace-card">
@@ -180,8 +204,8 @@
 
                 <!-- Controles de entrada de fármacos -->
                 <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-                    <input type="text" id="inputMedicamentoNombre" class="form-control" placeholder="Fármaco (Ej. Paracetamol 500mg)" style="flex: 1;">
-                    <input type="text" id="inputMedicamentoDosis" class="form-control" placeholder="Indicaciones (Ej. 1 tableta c/8 hrs x 5 días)" style="flex: 2;">
+                    <input type="text" id="inputMedicamentoNombre" class="form-control" style="flex: 1;">
+                    <input type="text" id="inputMedicamentoDosis" class="form-control" style="flex: 2;">
                     <button type="button" class="btn-action" onclick="agregarMedicamentoTabla()" style="padding: 0 16px; white-space: nowrap;">
                         + Agregar
                     </button>

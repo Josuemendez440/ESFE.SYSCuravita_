@@ -6,7 +6,15 @@ namespace ESFE.SYSCURAVITA_DAL
 {
     public static class ConsultaDAL
     {
-        public static bool GuardarDiagnostico(int pacienteId, string? codigoExpediente, string? diagnosticoTexto)
+        public static bool GuardarDiagnostico(
+            int pacienteId,
+            string? codigoExpediente,
+            string? diagnosticoTexto,
+            string? pa = "N/A",
+            string? fc = "N/A",
+            string? temp = "N/A",
+            string? peso = "N/A",
+            string? receta = "")
         {
             using var conexion = ConexionDAL.ObtenerConexion();
             if (conexion == null) return false;
@@ -28,51 +36,40 @@ namespace ESFE.SYSCURAVITA_DAL
 
             if (idRealPaciente == 0) return false;
 
-            string sqlConsulta = @"SELECT TOP 1 consulta_id FROM Consultas WHERE paciente_id = @PacienteId ORDER BY fecha_consulta DESC";
-            int consultaId = 0;
+            // 1. Insertar una nueva consulta
+            string sqlInsertConsulta = @"
+                INSERT INTO Consultas (paciente_id, recepcionista_id, fecha_consulta, tipo_atencion_id, estado_consulta_id, monto_consulta, es_emergencia)
+                VALUES (@PacienteId, 1, GETDATE(), 1, 1, 0.00, 0);
+                SELECT SCOPE_IDENTITY();";
 
-            using (var cmdC = new SqlCommand(sqlConsulta, conexion))
+            int nuevaConsultaId = 0;
+            using (var cmdIns = new SqlCommand(sqlInsertConsulta, conexion))
             {
-                cmdC.Parameters.AddWithValue("@PacienteId", idRealPaciente);
-                object? res = cmdC.ExecuteScalar();
-                if (res != null && res != DBNull.Value)
-                {
-                    consultaId = Convert.ToInt32(res);
-                }
-            }
-
-            if (consultaId == 0)
-            {
-                string sqlInsertConsulta = @"
-                    INSERT INTO Consultas (paciente_id, recepcionista_id, fecha_consulta, tipo_atencion_id, estado_consulta_id, monto_consulta, es_emergencia)
-                    VALUES (@PacienteId, 1, GETDATE(), 1, 1, 0.00, 0);
-                    SELECT SCOPE_IDENTITY();";
-
-                using var cmdIns = new SqlCommand(sqlInsertConsulta, conexion);
                 cmdIns.Parameters.AddWithValue("@PacienteId", idRealPaciente);
                 object? newId = cmdIns.ExecuteScalar();
                 if (newId != null && newId != DBNull.Value)
                 {
-                    consultaId = Convert.ToInt32(newId);
+                    nuevaConsultaId = Convert.ToInt32(newId);
                 }
             }
 
-            string sqlDiagnostico = @"
-                IF EXISTS (SELECT 1 FROM Diagnosticos WHERE consulta_id = @ConsultaId)
-                BEGIN
-                    UPDATE Diagnosticos 
-                    SET conclusion_diagnostico = @Diagnostico, fecha_registro = GETDATE()
-                    WHERE consulta_id = @ConsultaId
-                END
-                ELSE
-                BEGIN
-                    INSERT INTO Diagnosticos (consulta_id, conclusion_diagnostico, fecha_registro)
-                    VALUES (@ConsultaId, @Diagnostico, GETDATE())
-                END";
+            if (nuevaConsultaId == 0) return false;
 
-            using var cmdD = new SqlCommand(sqlDiagnostico, conexion);
-            cmdD.Parameters.AddWithValue("@ConsultaId", consultaId);
+            // 2. Formatear signos vitales y receta para la nueva columna
+            string vitalsTexto = $"PA: {pa} mmHg | FC: {fc} lpm | Temp: {temp} °C | Peso: {peso} Kg";
+            string recetaTexto = string.IsNullOrWhiteSpace(receta) ? "Sin medicamentos formulados." : (receta.StartsWith("Receta:") ? receta : $"Receta: {receta}");
+            string detalleCompleto = $"{vitalsTexto}\n{recetaTexto}";
+
+            // 3. Registrar el diagnóstico usando la columna observaciones
+            string sqlInsertDiagnostico = @"
+                INSERT INTO Diagnosticos (consulta_id, conclusion_diagnostico, fecha_registro, observaciones)
+                VALUES (@ConsultaId, @Diagnostico, GETDATE(), @Observaciones);";
+
+            using var cmdD = new SqlCommand(sqlInsertDiagnostico, conexion);
+            cmdD.Parameters.AddWithValue("@ConsultaId", nuevaConsultaId);
             cmdD.Parameters.AddWithValue("@Diagnostico", diagnosticoTexto ?? string.Empty);
+            cmdD.Parameters.AddWithValue("@Observaciones", detalleCompleto);
+
             return cmdD.ExecuteNonQuery() > 0;
         }
 
@@ -86,10 +83,10 @@ namespace ESFE.SYSCURAVITA_DAL
 
             string query = @"
                 SELECT 
-                    FORMAT(d.fecha_registro, 'dd/MM/yyyy') AS fecha,
-                    FORMAT(d.fecha_registro, 'hh:mm tt') AS hora,
+                    FORMAT(d.fecha_registro, 'd/M/yyyy') AS fecha,
+                    FORMAT(d.fecha_registro, 'hh:mm') AS hora,
                     d.conclusion_diagnostico AS diagnostico,
-                    'Consulta procesada correctamente.' AS observaciones
+                    ISNULL(d.observaciones, '') AS observaciones
                 FROM [dbo].[Diagnosticos] d
                 INNER JOIN [dbo].[Consultas] c ON d.consulta_id = c.consulta_id
                 INNER JOIN [dbo].[Pacientes] p ON c.paciente_id = p.paciente_id

@@ -8,13 +8,32 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarListaEsperaLocal();
     renderizarTablaReceta();
     actualizarEstadoVista();
+    aplicarValidacionesCampos();
 });
 
-// Refrescar lista al cambiar de pestaña o enfoque
 window.addEventListener('focus', cargarListaEsperaLocal);
 window.addEventListener('storage', cargarListaEsperaLocal);
 
-// Receptor de mensajes WebView2 (C#)
+function obtenerValorCampo(ids) {
+    for (let id of ids) {
+        let el = document.getElementById(id) || document.querySelector(id);
+        if (el && el.value && el.value.trim() !== '') {
+            return el.value.trim();
+        }
+    }
+    return 'N/A';
+}
+
+function aplicarValidacionesCampos() {
+    const inputsAlfanumericos = document.querySelectorAll('#txtDiagnostico, #inputMedicamentoNombre, #inputMedicamentoDosis, .vitals-grid input, .prescription-form input');
+    inputsAlfanumericos.forEach(input => {
+        if (!input) return;
+        input.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s.,/()-]/g, '');
+        });
+    });
+}
+
 if (window.chrome && window.chrome.webview) {
     window.chrome.webview.addEventListener('message', function (event) {
         const datos = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
@@ -24,7 +43,6 @@ if (window.chrome && window.chrome.webview) {
             const listaServidor = datos.Pacientes || [];
             let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
 
-            // Combinar servidor y localStorage evitando duplicados por ID
             listaServidor.forEach(p => {
                 const pId = p.paciente_id || p.id;
                 if (!listaLocal.some(item => (item.paciente_id || item.id) === pId)) {
@@ -38,9 +56,25 @@ if (window.chrome && window.chrome.webview) {
         } else if (datos.Accion === "CONSULTA_GUARDADA") {
             if (datos.Exito) {
                 mostrarToast("Consulta procesada y agregada al historial", "exito");
+                if (pacienteSeleccionadoId) {
+                    obtenerHistorialCompleto();
+                }
             } else {
                 mostrarToast("Error al guardar la consulta en la base de datos", "error");
             }
+        } else if (datos.Accion === "REGISTRO_ELIMINADO") {
+            const idBorrado = datos.PacienteId;
+
+            let listaEspera = JSON.parse(localStorage.getItem('listaEspera') || '[]');
+            listaEspera = listaEspera.filter(p => (p.paciente_id || p.id) !== idBorrado);
+            localStorage.setItem('listaEspera', JSON.stringify(listaEspera));
+            localStorage.removeItem(`historial_${idBorrado}`);
+
+            if (pacienteSeleccionadoId === idBorrado) {
+                limpiarWorkspaceConsulta();
+            }
+
+            renderizarListaEspera(listaEspera);
         }
     });
 }
@@ -127,7 +161,16 @@ function solicitarConfirmacionAceptar(p, elementoHtml) {
     if (elementoHtml) elementoHtml.classList.add('active');
 
     pacientePendiente = p;
-    confirmarAceptarPaciente();
+
+    const modal = document.getElementById('acceptPatientModal');
+    if (modal) {
+        const nombreMostrar = p.nombreCompleto || `${p.nombres || ''} ${p.apellidos || ''}`.trim();
+        document.getElementById('acceptPatientName').innerText = nombreMostrar;
+        document.getElementById('acceptPatientCode').innerText = p.codigo_expediente || p.codigo || 'N/A';
+        modal.style.display = 'flex';
+    } else {
+        confirmarAceptarPaciente();
+    }
 }
 
 function closeAcceptModal() {
@@ -179,36 +222,81 @@ function renderizarHistorial(historialServidor) {
     const container = document.querySelector('.history-modal-body');
     if (!container) return;
 
-    let historialLocal = JSON.parse(localStorage.getItem(`historial_${pacienteSeleccionadoId}`) || '[]');
-    let historialCompleto = [...historialLocal, ...(historialServidor || [])];
+    let historialCompleto = historialServidor || [];
 
     if (historialCompleto.length === 0) {
         container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted);">El paciente no registra consultas previas.</div>`;
         return;
     }
 
-    container.innerHTML = historialCompleto.map(item => `
-        <div class="history-card">
-            <div class="history-card-header">
-                <div class="history-date">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    ${item.fecha || 'FECHA NO REGISTRADA'}
+    container.innerHTML = historialCompleto.map(item => {
+        const fecha = item.fecha || item.Fecha || 'FECHA NO REGISTRADA';
+        const hora = item.hora || item.Hora || '';
+
+        let rawDiag = item.diagnostico || item.Diagnostico || 'Sin diagnóstico';
+        let diagnosticoPuro = rawDiag;
+        let vitals = item.vitals || item.Vitals || '';
+        let receta = item.receta || item.Receta || item.observaciones || item.Observaciones || '';
+
+        // Extraer diagnóstico, signos vitales y receta desde la cadena concatenada
+        if (rawDiag.includes('PA:') || rawDiag.includes('Receta:')) {
+            let partesReceta = rawDiag.split(/Receta:/i);
+            if (partesReceta.length > 1 && partesReceta[1].trim() !== '') {
+                receta = partesReceta[1].trim();
+            }
+
+            let parteAntesReceta = partesReceta[0];
+            let partesPA = parteAntesReceta.split(/PA:/i);
+
+            diagnosticoPuro = partesPA[0].trim();
+            if (partesPA.length > 1) {
+                vitals = 'PA: ' + partesPA[1].trim();
+            }
+        }
+
+        // Limpieza del diagnóstico para mostrar solo el texto principal
+        diagnosticoPuro = diagnosticoPuro.replace(/[\r\n]+/g, ' ').trim();
+        if (!diagnosticoPuro) diagnosticoPuro = "Sin diagnóstico";
+
+        // Formatear el texto final de la receta
+        let recetaTexto = 'Sin medicamentos formulados.';
+        if (receta && receta !== 'Sin medicamentos' && receta !== 'Sin medicamentos formulados.') {
+            recetaTexto = receta.replace(/^Receta:\s*/i, '');
+        }
+
+        return `
+            <div class="history-card" style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: #ffffff;">
+                <div class="history-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div class="history-date" style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #334155;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        <span>${fecha}</span>
+                    </div>
+                    ${hora ? `<span class="history-time" style="background: #e2e8f0; color: #475569; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px;">${hora}</span>` : ''}
                 </div>
-                <span class="history-time">${item.hora || 'Atendido'}</span>
+
+                <span class="history-label" style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 0.5px;">DIAGNÓSTICO EMITIDO:</span>
+                
+                <!-- Solo el Diagnóstico -->
+                <h4 class="history-diag-title" style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 4px 0 8px 0;">${diagnosticoPuro}</h4>
+                
+                <!-- Signos Vitales en Azul -->
+                ${vitals ? `<p style="font-size: 13px; font-weight: 700; color: #0369a1; margin: 0 0 4px 0;">${vitals}</p>` : ''}
+                
+                <!-- Medicina / Receta extraída correctamente -->
+                <p style="font-size: 13px; color: #64748b; margin: 0;"><b>Receta:</b> ${recetaTexto}</p>
             </div>
-            <span class="history-label">DIAGNÓSTICO EMITIDO:</span>
-            <h4 class="history-diag-title">${item.diagnostico || 'Consulta General'}</h4>
-            <p class="history-desc">${item.observaciones || item.tratamiento || 'Sin observaciones registradas.'}</p>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function agregarMedicamentoTabla() {
-    const inputNombre = document.getElementById('inputMedicamentoNombre');
-    const inputDosis = document.getElementById('inputMedicamentoDosis');
+    const inputsPrescripcion = document.querySelectorAll('.prescription-form input, #secPrescripcion input');
 
-    const nombre = inputNombre ? inputNombre.value.trim() : '';
-    const dosis = inputDosis ? inputDosis.value.trim() : '';
+    let elNombre = document.getElementById('inputMedicamentoNombre') || document.getElementById('txtMedicamento') || inputsPrescripcion[0];
+    let elDosis = document.getElementById('inputMedicamentoDosis') || document.getElementById('txtIndicaciones') || inputsPrescripcion[1];
+
+    const nombre = elNombre ? elNombre.value.trim() : '';
+    const dosis = elDosis ? elDosis.value.trim() : '';
 
     if (!nombre) {
         mostrarToast("Ingrese el nombre del medicamento.", "error");
@@ -217,8 +305,8 @@ function agregarMedicamentoTabla() {
 
     listaReceta.push({ medicamento: nombre, indicaciones: dosis });
 
-    if (inputNombre) inputNombre.value = '';
-    if (inputDosis) inputDosis.value = '';
+    if (elNombre) elNombre.value = '';
+    if (elDosis) elDosis.value = '';
 
     renderizarTablaReceta();
 }
@@ -229,7 +317,7 @@ function eliminarMedicamentoTabla(index) {
 }
 
 function renderizarTablaReceta() {
-    const tbody = document.getElementById('tbodyReceta');
+    const tbody = document.getElementById('tbodyReceta') || document.querySelector('.prescription-table tbody');
     if (!tbody) return;
 
     if (listaReceta.length === 0) {
@@ -243,7 +331,7 @@ function renderizarTablaReceta() {
             <td>${item.indicaciones || 'Sin indicaciones especificadas'}</td>
             <td style="text-align: center;">
                 <button type="button" class="btn-delete" title="Quitar medicamento" onclick="eliminarMedicamentoTabla(${index})">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                 </button>
             </td>
         </tr>
@@ -256,7 +344,7 @@ function finalizarConsulta() {
         return;
     }
 
-    const txtDiag = document.getElementById('txtDiagnostico');
+    const txtDiag = document.getElementById('txtDiagnostico') || document.getElementById('diagnostico');
     const diag = txtDiag ? txtDiag.value.trim() : '';
 
     if (!diag) {
@@ -264,24 +352,15 @@ function finalizarConsulta() {
         return;
     }
 
-    const fechaActual = new Date().toLocaleDateString('es-ES');
-    const horaActual = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const pa = obtenerValorCampo(['inputPA', 'txtPA', 'pa', 'presionArterial', 'inputPresion']);
+    const fc = obtenerValorCampo(['inputFC', 'txtFC', 'fc', 'frecuenciaCardiaca', 'inputFCardiaca']);
+    const temp = obtenerValorCampo(['inputTemp', 'txtTemp', 'temp', 'temperatura', 'inputTemperatura']);
+    const peso = obtenerValorCampo(['inputPeso', 'txtPeso', 'peso', 'pesoKg', 'inputPesoKg']);
 
-    // 1. Guardar en historial médico local
-    const nuevaEntradaHistorial = {
-        fecha: fechaActual,
-        hora: horaActual,
-        diagnostico: diag,
-        observaciones: listaReceta.length > 0
-            ? "Receta: " + listaReceta.map(m => `${m.medicamento} (${m.indicaciones})`).join(', ')
-            : 'Sin medicamentos formulados.'
-    };
+    const recetaFormateada = listaReceta.length > 0
+        ? listaReceta.map(m => m.indicaciones ? `${m.medicamento} (${m.indicaciones})` : m.medicamento).join(', ')
+        : 'Sin medicamentos formulados.';
 
-    let historialExistente = JSON.parse(localStorage.getItem(`historial_${pacienteSeleccionadoId}`) || '[]');
-    historialExistente.unshift(nuevaEntradaHistorial);
-    localStorage.setItem(`historial_${pacienteSeleccionadoId}`, JSON.stringify(historialExistente));
-
-    // 2. Registrar paciente en la cola de Cobros Pendientes (Módulo de Pago)
     const nombreCompleto = pacientePendiente.nombreCompleto || `${pacientePendiente.nombres || ''} ${pacientePendiente.apellidos || ''}`.trim();
     const nuevoCobro = {
         paciente_id: pacienteSeleccionadoId,
@@ -298,13 +377,17 @@ function finalizarConsulta() {
         localStorage.setItem('listaPagos', JSON.stringify(listaPagos));
     }
 
-    // 3. Notificar a C#
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({
             Accion: "GUARDAR_CONSULTA",
             PacienteId: pacienteSeleccionadoId,
             codigoExpediente: pacientePendiente.codigo_expediente || pacientePendiente.codigo,
-            Diagnostico: diag
+            Diagnostico: diag,
+            PA: pa,
+            FC: fc,
+            Temperatura: temp,
+            Peso: peso,
+            Receta: recetaFormateada
         }));
 
         window.chrome.webview.postMessage(JSON.stringify({
@@ -315,7 +398,6 @@ function finalizarConsulta() {
 
     mostrarToast("Consulta procesada y enviada a Módulo de Pago", "exito");
 
-    // 4. Remover paciente de la lista de espera local de consulta
     let listaLocal = JSON.parse(localStorage.getItem('listaEspera') || '[]');
     listaLocal = listaLocal.filter(p => (p.paciente_id || p.id) !== pacienteSeleccionadoId);
     localStorage.setItem('listaEspera', JSON.stringify(listaLocal));
@@ -327,6 +409,9 @@ function finalizarConsulta() {
 function limpiarWorkspaceConsulta() {
     const diag = document.getElementById('txtDiagnostico');
     if (diag) diag.value = '';
+
+    const inputsLimpiar = document.querySelectorAll('#inputPA, #inputFC, #inputTemp, #inputPeso, .vitals-grid input');
+    inputsLimpiar.forEach(inp => { if (inp) inp.value = ''; });
 
     listaReceta = [];
     renderizarTablaReceta();

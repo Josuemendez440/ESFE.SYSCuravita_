@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarListaPagosLocal();
 });
 
-// Escuchar respuestas enviadas desde C# (WebView2)
 if (window.chrome && window.chrome.webview) {
     window.chrome.webview.addEventListener('message', function (event) {
         const datos = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
@@ -18,6 +17,20 @@ if (window.chrome && window.chrome.webview) {
             if (datos.Exito) {
                 alert(datos.Mensaje || "Pago procesado e impreso correctamente.");
             }
+        } else if (datos.Accion === "REGISTRO_ELIMINADO") {
+            const idBorrado = datos.PacienteId;
+
+            let listaPagos = JSON.parse(localStorage.getItem('listaPagos') || '[]');
+            listaPagos = listaPagos.filter(p => (p.paciente_id || p.id || p.consulta_id) !== idBorrado);
+            localStorage.setItem('listaPagos', JSON.stringify(listaPagos));
+
+            if (pagoSeleccionado && (pagoSeleccionado.paciente_id || pagoSeleccionado.id || pagoSeleccionado.consulta_id) === idBorrado) {
+                pagoSeleccionado = null;
+                document.getElementById('workspacePanelPago').style.display = 'none';
+                document.getElementById('emptyWorkspacePago').style.display = 'block';
+            }
+
+            renderizarListaPagos(listaPagos);
         }
     });
 }
@@ -158,7 +171,6 @@ function procesarPago() {
     const pId = pagoSeleccionado.paciente_id || pagoSeleccionado.id || pagoSeleccionado.consulta_id;
     const nombre = pagoSeleccionado.nombreCompleto || `${pagoSeleccionado.nombres || ''} ${pagoSeleccionado.apellidos || ''}`.trim();
 
-    // Enviar JSON a C#
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({
             Accion: "PROCESAR_PAGO_FACTURA",
@@ -174,7 +186,6 @@ function procesarPago() {
 
     incrementarNumeroFactura();
 
-    // Limpiar selección actual
     let listaLocal = JSON.parse(localStorage.getItem('listaPagos') || '[]');
     listaLocal = listaLocal.filter(p => (p.paciente_id || p.id || p.consulta_id) !== pId);
     localStorage.setItem('listaPagos', JSON.stringify(listaLocal));
