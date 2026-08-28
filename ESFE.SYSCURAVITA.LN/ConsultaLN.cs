@@ -6,13 +6,13 @@ namespace ESFE.SYSCURAVITA.LN
 {
     public static class ConsultaLN
     {
-        // Sobrecarga original (3 parámetros) para mantener compatibilidad
+        // Sobrecarga de compatibilidad (3 parámetros)
         public static bool GuardarDiagnostico(int pacienteId, string? codigoExpediente, string? diagnosticoTexto)
         {
             return ConsultaDAL.GuardarDiagnostico(pacienteId, codigoExpediente, diagnosticoTexto);
         }
 
-        // Nueva sobrecarga (8 parámetros) recibida desde FormSistema
+        // Sobrecarga completa (8 parámetros): reenvía directamente los signos vitales a ConsultaDAL
         public static bool GuardarDiagnostico(
             int pacienteId,
             string? codigoExpediente,
@@ -23,13 +23,16 @@ namespace ESFE.SYSCURAVITA.LN
             string? peso,
             string? receta)
         {
-            // Formatea los signos vitales y la receta junto con el diagnóstico
-            string signosYReceta = $"PA: {pa ?? "N/A"} | FC: {fc ?? "N/A"} | Temp: {temperatura ?? "N/A"} | Peso: {peso ?? "N/A"}\nReceta: {receta ?? "Sin medicamentos"}";
-            string diagnosticoCompleto = string.IsNullOrWhiteSpace(diagnosticoTexto)
-                ? signosYReceta
-                : $"{diagnosticoTexto}\n{signosYReceta}";
-
-            return ConsultaDAL.GuardarDiagnostico(pacienteId, codigoExpediente, diagnosticoCompleto);
+            return ConsultaDAL.GuardarDiagnostico(
+                pacienteId,
+                codigoExpediente,
+                diagnosticoTexto,
+                pa,
+                fc,
+                temperatura,
+                peso,
+                receta
+            );
         }
 
         public static List<HistorialDTO> ObtenerHistorial(int pacienteId, string? codigoExpediente)

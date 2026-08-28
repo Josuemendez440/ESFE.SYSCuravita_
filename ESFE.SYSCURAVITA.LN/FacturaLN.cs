@@ -1,5 +1,5 @@
 ﻿using System;
-using ESFE.SYSCURAVITA.DAL;
+using ESFE.SYSCURAVITA_DAL;
 using ESFE.SYSCURAVITA.EN;
 
 namespace ESFE.SYSCURAVITA.LN
@@ -10,16 +10,21 @@ namespace ESFE.SYSCURAVITA.LN
         {
             if (dto == null || dto.MontoTotal <= 0)
             {
-                return new RespuestaPagoDTO { Exito = false, Mensaje = "El monto total de la factura no es válido." };
+                return new RespuestaPagoDTO
+                {
+                    Exito = false,
+                    Mensaje = "El monto total de la factura no es válido."
+                };
             }
 
-            // Cálculo inverso del IVA (13%) e importe subtotal
+            // Cálculo del IVA (13%) e importe subtotal
             decimal subtotal = Math.Round(dto.MontoTotal / 1.13m, 2);
             decimal iva = Math.Round(dto.MontoTotal - subtotal, 2);
 
             FacturaEN nuevaFactura = new FacturaEN
             {
                 NumeroFactura = dto.NumeroFactura,
+                PacienteId = dto.PacienteId,
                 PacienteNombre = dto.Paciente,
                 MetodoPago = dto.MetodoPago,
                 Subtotal = subtotal,
@@ -32,8 +37,9 @@ namespace ESFE.SYSCURAVITA.LN
 
             return new RespuestaPagoDTO
             {
+                Accion = "PAGO_REGISTRADO",
                 Exito = resultado,
-                Mensaje = resultado ? "Factura procesada con éxito." : "Error al guardar el pago en la base de datos."
+                Mensaje = resultado ? "Factura procesada con éxito." : "Error al guardar la factura en la base de datos."
             };
         }
     }

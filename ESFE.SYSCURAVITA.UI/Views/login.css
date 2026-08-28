@@ -6,6 +6,7 @@
     --white: #FFFFFF;
     --border-color: #b2cfd6;
     --text-muted: #5a7b85;
+    --danger-red: #d94e4e;
 }
 
 * {
@@ -71,11 +72,21 @@ input::-webkit-credentials-auto-fill-button {
 h2 {
     color: var(--primary-dark);
     font-size: 15px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     font-weight: 700;
     letter-spacing: 0.5px;
     text-align: center;
     width: 100%;
+}
+
+.error-msg {
+    color: var(--danger-red);
+    font-size: 11px;
+    margin-bottom: 12px;
+    display: none;
+    text-align: center;
+    width: 100%;
+    font-weight: 600;
 }
 
 .form-group {

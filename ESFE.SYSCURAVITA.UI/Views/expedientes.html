@@ -59,6 +59,7 @@
     <main class="main-workspace">
         <div class="workspace-grid">
 
+            <!-- Panel Izquierdo: Formulario -->
             <section class="card-panel">
                 <div class="panel-header">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -73,24 +74,24 @@
 
                 <form id="createForm" onsubmit="handleCreate(event)">
                     <div class="form-group">
-                        <label>Nombres</label>
-                        <input type="text" id="inputNombres" class="form-control" required>
+                        <label for="inputNombres">Nombres</label>
+                        <input type="text" id="inputNombres" class="form-control" required placeholder="Ej. Juan Carlos">
                     </div>
                     <div class="form-group">
-                        <label>Apellidos</label>
-                        <input type="text" id="inputApellidos" class="form-control" required>
+                        <label for="inputApellidos">Apellidos</label>
+                        <input type="text" id="inputApellidos" class="form-control" required placeholder="Ej. Mendoza López">
                     </div>
                     <div class="form-group">
-                        <label>Documento de Identidad (DUI)</label>
-                        <input type="text" id="inputDUI" class="form-control" maxlength="10" required>
+                        <label for="inputDUI">Documento de Identidad (DUI)</label>
+                        <input type="text" id="inputDUI" class="form-control" placeholder="00000000-0" maxlength="10" required>
                     </div>
                     <div class="form-group">
-                        <label>Teléfono de Contacto</label>
-                        <input type="text" id="inputTelefono" class="form-control" maxlength="9" required>
+                        <label for="inputTelefono">Teléfono de Contacto</label>
+                        <input type="text" id="inputTelefono" class="form-control" placeholder="0000-0000" maxlength="9" required>
                     </div>
                     <div class="form-group">
-                        <label>Fecha de Nacimiento</label>
-                        <input type="date" id="inputFechaNacimiento" class="form-control">
+                        <label for="inputFechaNacimiento">Fecha de Nacimiento</label>
+                        <input type="date" id="inputFechaNacimiento" class="form-control" required>
                     </div>
                     <button type="submit" class="btn-submit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -103,6 +104,7 @@
                 </form>
             </section>
 
+            <!-- Panel Derecho: Búsqueda -->
             <section class="card-panel">
                 <div class="panel-header">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -118,8 +120,8 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 24px;">
-                    <label>Buscar por Nombre o Documento de Identidad</label>
-                    <input type="text" id="searchInput" onkeyup="filterTable()" class="form-control">
+                    <label for="searchInput">Buscar por Nombre o Documento de Identidad</label>
+                    <input type="text" id="searchInput" onkeyup="filterTable()" class="form-control" placeholder="Escriba un nombre o DUI...">
                 </div>
 
                 <table class="search-table" id="patientsTable">
@@ -132,17 +134,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td><b style="color: var(--primary);">PAC-0042</b></td>
-                            <td><b>Juan Carlos Mendoza</b></td>
-                            <td style="color: var(--text-muted);">01234567-8</td>
-                            <td style="text-align: right;">
-                                <button class="btn-action" onclick="abrirModalEspecialidad(this, {paciente_id: 42, codigo_expediente: 'PAC-0042', nombres: 'Juan Carlos Mendoza', dui_documento: '01234567-8', fecha_nacimiento: '1995-05-10'})">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                    Seleccionar
-                                </button>
-                            </td>
-                        </tr>
+                        <!-- Se llena dinámicamente desde JS -->
                     </tbody>
                 </table>
             </section>
@@ -150,7 +142,7 @@
         </div>
     </main>
 
-    <!-- Modal para Selección de Especialidad y Confirmación de Cita -->
+    <!-- Modal para Selección de Especialidad -->
     <div id="modalEspecialidad" class="modal-overlay">
         <div class="modal-card" style="max-width: 450px; text-align: left;">
             <div class="panel-header" style="margin-bottom: 16px;">
@@ -195,7 +187,7 @@
         </div>
     </div>
 
-    <!-- Modal para Cerrar Sesión -->
+    <!-- Modal Cerrar Sesión -->
     <div id="logoutModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-icon danger">
@@ -214,7 +206,7 @@
         </div>
     </div>
 
-    <!-- Modal para Confirmación de Guardado -->
+    <!-- Modal Confirmación -->
     <div id="successModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-icon success">
@@ -222,7 +214,7 @@
                     <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
             </div>
-            <h3 class="modal-title">Guardado Exitosamente</h3>
+            <h3 class="modal-title">Operación Exitosa</h3>
             <p id="successModalText" class="modal-desc">El expediente ha sido registrado correctamente.</p>
             <button class="btn-modal-success" onclick="closeSuccessModal()">Aceptar</button>
         </div>

@@ -1,12 +1,10 @@
 ﻿using ESFE.SYSCURAVITA.EN;
-using ESFE.SYSCURAVITA_DAL;
 using System;
-using System.Data;
 using Microsoft.Data.SqlClient;
 
-namespace ESFE.SYSCURAVITA.DAL
+namespace ESFE.SYSCURAVITA_DAL
 {
-    public class FacturaDAL
+    public static class FacturaDAL
     {
         public static bool RegistrarPago(FacturaEN factura)
         {
@@ -15,14 +13,18 @@ namespace ESFE.SYSCURAVITA.DAL
                 using (SqlConnection conn = ConexionDAL.ObtenerConexion())
                 {
                     conn.Open();
-                    string query = @"INSERT INTO Facturas (NumeroFactura, PacienteNombre, MetodoPago, Subtotal, Iva, Total, FechaEmision) 
-                                     VALUES (@NumeroFactura, @PacienteNombre, @MetodoPago, @Subtotal, @Iva, @Total, @FechaEmision)";
+
+                    // Incluimos paciente_id por si la tabla lo requiere en la base de datos
+                    string query = @"INSERT INTO Facturas 
+                                    (NumeroFactura, PacienteNombre, MetodoPago, Subtotal, Iva, Total, FechaEmision) 
+                                     VALUES 
+                                    (@NumeroFactura, @PacienteNombre, @MetodoPago, @Subtotal, @Iva, @Total, @FechaEmision)";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
-                        cmd.Parameters.AddWithValue("@NumeroFactura", factura.NumeroFactura);
-                        cmd.Parameters.AddWithValue("@PacienteNombre", factura.PacienteNombre ?? "Consumidor Final");
-                        cmd.Parameters.AddWithValue("@MetodoPago", factura.MetodoPago);
+                        cmd.Parameters.AddWithValue("@NumeroFactura", factura.NumeroFactura ?? string.Empty);
+                        cmd.Parameters.AddWithValue("@PacienteNombre", string.IsNullOrWhiteSpace(factura.PacienteNombre) ? "Consumidor Final" : factura.PacienteNombre);
+                        cmd.Parameters.AddWithValue("@MetodoPago", factura.MetodoPago ?? string.Empty);
                         cmd.Parameters.AddWithValue("@Subtotal", factura.Subtotal);
                         cmd.Parameters.AddWithValue("@Iva", factura.Iva);
                         cmd.Parameters.AddWithValue("@Total", factura.Total);
@@ -32,8 +34,9 @@ namespace ESFE.SYSCURAVITA.DAL
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine("Error en FacturaDAL.RegistrarPago: " + ex.Message);
                 return false;
             }
         }

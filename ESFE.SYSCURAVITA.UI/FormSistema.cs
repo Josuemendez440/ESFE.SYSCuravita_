@@ -91,56 +91,91 @@ namespace ESFE.SYSCURAVITA.UI
             {
                 string mensaje = e.TryGetWebMessageAsString();
 
+                // 1. Mensajes en texto plano
                 switch (mensaje)
                 {
                     case "cerrarSesion":
+                    case "cerrar_sesion":
                         _esCierreDeSesion = true;
                         Close();
                         return;
 
                     case "nav_expedientes":
+                    case "expedientes":
                         CargarPaginaHtml("expedientes.html");
                         return;
 
                     case "nav_consulta":
+                    case "consulta":
                         CargarPaginaHtml("consulta.html");
                         return;
 
                     case "nav_pago":
+                    case "pago":
+                    case "facturacion":
                         CargarPaginaHtml("facturacion.html");
                         return;
 
                     case "cargar_expedientes":
+                    case "obtener_pacientes":
                         await CargarTablaPacientesAsync();
                         return;
                 }
 
+                // 2. Objetos JSON enviados por Frontend JavaScript
                 if (mensaje.StartsWith('{'))
                 {
                     using var doc = JsonDocument.Parse(mensaje);
                     var root = doc.RootElement;
 
-                    string accion = string.Empty;
-                    if (root.TryGetProperty("accion", out var aMin)) accion = aMin.GetString() ?? string.Empty;
-                    else if (root.TryGetProperty("Accion", out var aMay)) accion = aMay.GetString() ?? string.Empty;
+                    string accion = ObtenerString(root, "accion", "Accion");
 
-                    if (accion == "guardar_expediente")
+                    if (accion.Equals("NAVEGAR", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string modulo = ObtenerString(root, "modulo", "Modulo");
+
+                        switch (modulo.ToLower())
+                        {
+                            case "expedientes":
+                            case "nav_expedientes":
+                                CargarPaginaHtml("expedientes.html");
+                                break;
+                            case "consulta":
+                            case "nav_consulta":
+                                CargarPaginaHtml("consulta.html");
+                                break;
+                            case "pago":
+                            case "facturacion":
+                            case "nav_pago":
+                                CargarPaginaHtml("facturacion.html");
+                                break;
+                            case "cerrarsesion":
+                            case "cerrar_sesion":
+                                _esCierreDeSesion = true;
+                                Close();
+                                break;
+                        }
+                        return;
+                    }
+                    else if (accion.Equals("obtener_pacientes", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await CargarListaEsperaConsultaAsync();
+                    }
+                    else if (accion.Equals("guardar_expediente", StringComparison.OrdinalIgnoreCase))
                     {
                         DateTime? fechaNacimiento = null;
-                        if (root.TryGetProperty("fecha_nacimiento", out var fNac) && !string.IsNullOrWhiteSpace(fNac.GetString()))
+                        string fNacStr = ObtenerString(root, "fecha_nacimiento", "fechaNacimiento");
+                        if (!string.IsNullOrWhiteSpace(fNacStr) && DateTime.TryParse(fNacStr, out DateTime fechaParseada))
                         {
-                            if (DateTime.TryParse(fNac.GetString(), out DateTime fechaParseada))
-                            {
-                                fechaNacimiento = fechaParseada;
-                            }
+                            fechaNacimiento = fechaParseada;
                         }
 
                         var nuevo = new PacienteEN
                         {
-                            nombres = root.TryGetProperty("nombres", out var n) ? n.GetString() ?? string.Empty : string.Empty,
-                            apellidos = root.TryGetProperty("apellidos", out var a) ? a.GetString() ?? string.Empty : string.Empty,
-                            dui_documento = root.TryGetProperty("dui_documento", out var d) ? d.GetString() ?? string.Empty : string.Empty,
-                            telefono = root.TryGetProperty("telefono", out var t) ? t.GetString() ?? string.Empty : string.Empty,
+                            nombres = ObtenerString(root, "nombres"),
+                            apellidos = ObtenerString(root, "apellidos"),
+                            dui_documento = ObtenerString(root, "dui_documento", "duiDocumento"),
+                            telefono = ObtenerString(root, "telefono"),
                             fecha_nacimiento = fechaNacimiento
                         };
 
@@ -154,11 +189,9 @@ namespace ESFE.SYSCURAVITA.UI
                             MessageBox.Show("No se pudo guardar el expediente. Revise los campos ingresados.", "Atención", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         }
                     }
-                    else if (accion == "ELIMINAR_PACIENTE")
+                    else if (accion.Equals("ELIMINAR_PACIENTE", StringComparison.OrdinalIgnoreCase))
                     {
-                        int pacienteId = 0;
-                        if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
-                        else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
+                        int pacienteId = ObtenerInt(root, "PacienteId", "pacienteId");
 
                         if (PacienteLN.Eliminar(pacienteId))
                         {
@@ -175,11 +208,9 @@ namespace ESFE.SYSCURAVITA.UI
                             await CargarTablaPacientesAsync();
                         }
                     }
-                    else if (accion == "ENVIAR_A_CONSULTA")
+                    else if (accion.Equals("ENVIAR_A_CONSULTA", StringComparison.OrdinalIgnoreCase) || accion.Equals("crear_consulta", StringComparison.OrdinalIgnoreCase))
                     {
-                        int pacienteId = 0;
-                        if (root.TryGetProperty("pacienteId", out var pId)) pacienteId = pId.GetInt32();
-                        else if (root.TryGetProperty("PacienteId", out var pIdMay)) pacienteId = pIdMay.GetInt32();
+                        int pacienteId = ObtenerInt(root, "pacienteId", "PacienteId");
 
                         var todosPacientes = PacienteLN.ObtenerTodos();
                         var paciente = todosPacientes.FirstOrDefault(p => p.paciente_id == pacienteId);
@@ -189,42 +220,61 @@ namespace ESFE.SYSCURAVITA.UI
                             _pacientesEnEspera.Add(paciente);
                         }
                     }
-                    else if (accion == "REMOVER_DE_CONSULTA")
+                    else if (accion.Equals("REMOVER_DE_CONSULTA", StringComparison.OrdinalIgnoreCase))
                     {
-                        int pacienteId = 0;
-                        if (root.TryGetProperty("pacienteId", out var pId)) pacienteId = pId.GetInt32();
-                        else if (root.TryGetProperty("PacienteId", out var pIdMay)) pacienteId = pIdMay.GetInt32();
+                        int pacienteId = ObtenerInt(root, "pacienteId", "PacienteId");
 
                         _pacientesEnEspera.RemoveAll(p => p.paciente_id == pacienteId);
                         await CargarListaEsperaConsultaAsync();
                     }
-                    else if (accion == "OBTENER_PACIENTES")
+                    else if (accion.Equals("OBTENER_PACIENTES", StringComparison.OrdinalIgnoreCase))
                     {
                         await CargarListaEsperaConsultaAsync();
                     }
-                    else if (accion == "GUARDAR_CONSULTA")
+                    else if (accion.Equals("GUARDAR_CONSULTA", StringComparison.OrdinalIgnoreCase))
                     {
-                        int pacienteId = 0;
-                        if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
-                        else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
+                        int pacienteId = ObtenerInt(root, "PacienteId", "pacienteId");
+                        string codigoExpediente = ObtenerString(root, "CodigoExpediente", "codigoExpediente", "codigo_expediente");
+                        string diagnostico = ObtenerString(root, "Diagnostico", "diagnostico");
 
-                        string codigoExpediente = string.Empty;
-                        if (root.TryGetProperty("codigoExpediente", out var cExp)) codigoExpediente = cExp.GetString() ?? string.Empty;
-                        else if (root.TryGetProperty("codigo_expediente", out var cExp2)) codigoExpediente = cExp2.GetString() ?? string.Empty;
+                        // Signos Vitales
+                        string paSistolica = ObtenerString(root, "PresionSistolica", "PA");
+                        string paDiastolica = ObtenerString(root, "PresionDiastolica");
+                        string pa = (!string.IsNullOrEmpty(paSistolica) && !string.IsNullOrEmpty(paDiastolica))
+                            ? $"{paSistolica}/{paDiastolica}"
+                            : (!string.IsNullOrEmpty(paSistolica) ? paSistolica : "N/A");
 
-                        string diagnostico = string.Empty;
-                        if (root.TryGetProperty("Diagnostico", out var diag)) diagnostico = diag.GetString() ?? string.Empty;
-                        else if (root.TryGetProperty("diagnostico", out var dMin)) diagnostico = dMin.GetString() ?? string.Empty;
+                        string fc = ObtenerString(root, "FC", "fc");
+                        if (string.IsNullOrEmpty(fc)) fc = "N/A";
 
-                        // Extracción de Signos Vitales y Receta enviados desde JavaScript
-                        string pa = root.TryGetProperty("PA", out var pPA) ? pPA.GetString() ?? "N/A" : "N/A";
-                        string fc = root.TryGetProperty("FC", out var pFC) ? pFC.GetString() ?? "N/A" : "N/A";
-                        string temp = root.TryGetProperty("Temperatura", out var pTemp) ? pTemp.GetString() ?? "N/A" : "N/A";
-                        string peso = root.TryGetProperty("Peso", out var pPeso) ? pPeso.GetString() ?? "N/A" : "N/A";
-                        string receta = root.TryGetProperty("Receta", out var pReceta) ? pReceta.GetString() ?? "" : "";
+                        string temp = ObtenerString(root, "Temp", "Temperatura", "temp");
+                        if (string.IsNullOrEmpty(temp)) temp = "N/A";
 
-                        // Se envían todos los parámetros completos a la Capa de Negocio / DAL
-                        bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico, pa, fc, temp, peso, receta);
+                        string peso = ObtenerString(root, "Peso", "peso");
+                        if (string.IsNullOrEmpty(peso)) peso = "N/A";
+
+                        // Receta
+                        string recetaText = "";
+                        if (root.TryGetProperty("Medicamentos", out var medsProp) && medsProp.ValueKind == JsonValueKind.Array)
+                        {
+                            var listaMeds = new List<string>();
+                            foreach (var med in medsProp.EnumerateArray())
+                            {
+                                string medNombre = ObtenerString(med, "Medicamento", "medicamento");
+                                string medDosis = ObtenerString(med, "IndicacionesDosis", "indicacionesDosis", "dosis");
+                                if (!string.IsNullOrEmpty(medNombre))
+                                {
+                                    listaMeds.Add(string.IsNullOrEmpty(medDosis) ? medNombre : $"{medNombre} ({medDosis})");
+                                }
+                            }
+                            recetaText = string.Join(", ", listaMeds);
+                        }
+                        else
+                        {
+                            recetaText = ObtenerString(root, "Receta", "receta");
+                        }
+
+                        bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico, pa, fc, temp, peso, recetaText);
 
                         var respuesta = new
                         {
@@ -234,15 +284,10 @@ namespace ESFE.SYSCURAVITA.UI
 
                         webView21.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(respuesta));
                     }
-                    else if (accion == "OBTENER_HISTORIAL")
+                    else if (accion.Equals("OBTENER_HISTORIAL", StringComparison.OrdinalIgnoreCase))
                     {
-                        int pacienteId = 0;
-                        if (root.TryGetProperty("PacienteId", out var pId)) pacienteId = pId.GetInt32();
-                        else if (root.TryGetProperty("pacienteId", out var pIdMin)) pacienteId = pIdMin.GetInt32();
-
-                        string codigoExpediente = string.Empty;
-                        if (root.TryGetProperty("codigoExpediente", out var cExp)) codigoExpediente = cExp.GetString() ?? string.Empty;
-                        else if (root.TryGetProperty("codigo_expediente", out var cExp2)) codigoExpediente = cExp2.GetString() ?? string.Empty;
+                        int pacienteId = ObtenerInt(root, "PacienteId", "pacienteId");
+                        string codigoExpediente = ObtenerString(root, "CodigoExpediente", "codigoExpediente", "codigo_expediente");
 
                         var historialFiltrado = ConsultaLN.ObtenerHistorial(pacienteId, codigoExpediente);
 
@@ -255,15 +300,18 @@ namespace ESFE.SYSCURAVITA.UI
                         string jsonRespuesta = JsonSerializer.Serialize(respuesta);
                         webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
                     }
-                    else if (accion == "PROCESAR_PAGO_FACTURA")
+                    else if (accion.Equals("PROCESAR_PAGO_FACTURA", StringComparison.OrdinalIgnoreCase))
                     {
                         var solicitud = new SolicitudPagoDTO
                         {
                             Accion = accion,
-                            NumeroFactura = root.TryGetProperty("NumeroFactura", out var nFac) ? nFac.GetString() ?? string.Empty : string.Empty,
-                            Paciente = root.TryGetProperty("Paciente", out var pac) ? pac.GetString() ?? string.Empty : string.Empty,
-                            MetodoPago = root.TryGetProperty("MetodoPago", out var met) ? met.GetString() ?? string.Empty : string.Empty,
-                            MontoTotal = root.TryGetProperty("MontoTotal", out var mnt) ? mnt.GetDecimal() : 0m
+                            NumeroFactura = ObtenerString(root, "NumeroFactura", "numeroFactura"),
+                            PacienteId = ObtenerInt(root, "PacienteId", "pacienteId"),
+                            Paciente = ObtenerString(root, "Paciente", "paciente"),
+                            MetodoPago = ObtenerString(root, "MetodoPago", "metodoPago"),
+                            MontoTotal = ObtenerDecimal(root, "MontoTotal", "montoTotal"),
+                            MontoRecibido = ObtenerDecimal(root, "MontoRecibido", "montoRecibido"),
+                            Cambio = ObtenerDecimal(root, "Cambio", "cambio")
                         };
 
                         RespuestaPagoDTO respuesta = FacturaLN.ProcesarCobro(solicitud);
@@ -278,6 +326,48 @@ namespace ESFE.SYSCURAVITA.UI
                 MessageBox.Show("Error en la comunicación con la interfaz: " + ex.Message, "Error de Sistema", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
+        #region Métodos Auxiliares para Parsing Seguro de JSON
+        private static string ObtenerString(JsonElement root, params string[] propiedades)
+        {
+            foreach (var prop in propiedades)
+            {
+                if (root.TryGetProperty(prop, out var elem))
+                {
+                    if (elem.ValueKind == JsonValueKind.String) return elem.GetString() ?? string.Empty;
+                    if (elem.ValueKind == JsonValueKind.Number) return elem.ToString();
+                    if (elem.ValueKind == JsonValueKind.True || elem.ValueKind == JsonValueKind.False) return elem.GetBoolean().ToString();
+                }
+            }
+            return string.Empty;
+        }
+
+        private static int ObtenerInt(JsonElement root, params string[] propiedades)
+        {
+            foreach (var prop in propiedades)
+            {
+                if (root.TryGetProperty(prop, out var elem))
+                {
+                    if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt32(out int valInt)) return valInt;
+                    if (elem.ValueKind == JsonValueKind.String && int.TryParse(elem.GetString(), out int parsedInt)) return parsedInt;
+                }
+            }
+            return 0;
+        }
+
+        private static decimal ObtenerDecimal(JsonElement root, params string[] propiedades)
+        {
+            foreach (var prop in propiedades)
+            {
+                if (root.TryGetProperty(prop, out var elem))
+                {
+                    if (elem.ValueKind == JsonValueKind.Number && elem.TryGetDecimal(out decimal valDec)) return valDec;
+                    if (elem.ValueKind == JsonValueKind.String && decimal.TryParse(elem.GetString(), out decimal parsedDec)) return parsedDec;
+                }
+            }
+            return 0m;
+        }
+        #endregion
 
         private async Task CargarTablaPacientesAsync()
         {
@@ -299,7 +389,20 @@ namespace ESFE.SYSCURAVITA.UI
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
-        { base.OnFormClosing(e); if (_esCierreDeSesion) { if (Application.OpenForms["Form1"] is Form1 loginForm) { loginForm.LimpiarYLlamar(); } } else { Application.Exit(); } }
+        {
+            base.OnFormClosing(e);
+            if (_esCierreDeSesion)
+            {
+                if (Application.OpenForms["Form1"] is Form1 loginForm)
+                {
+                    loginForm.LimpiarYLlamar();
+                }
+            }
+            else
+            {
+                Application.Exit();
+            }
+        }
 
         private void webView21_Click(object? sender, EventArgs e) { }
     }

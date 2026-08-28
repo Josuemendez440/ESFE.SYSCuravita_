@@ -5,6 +5,8 @@ let metodoPagoActual = 'Efectivo';
 document.addEventListener('DOMContentLoaded', () => {
     const rolGuardado = localStorage.getItem('usuarioRol');
     if (rolGuardado) aplicarPermisos(rolGuardado);
+
+    inicializarEventosNavegacion();
     cargarListaPagosLocal();
 });
 
@@ -15,7 +17,7 @@ if (window.chrome && window.chrome.webview) {
             renderizarListaPagos(datos.Pagos || []);
         } else if (datos.Accion === "PAGO_REGISTRADO") {
             if (datos.Exito) {
-                alert(datos.Mensaje || "Pago procesado e impreso correctamente.");
+                alert(datos.Mensaje || "Factura registrada e impresa correctamente.");
             }
         } else if (datos.Accion === "REGISTRO_ELIMINADO") {
             const idBorrado = datos.PacienteId;
@@ -35,9 +37,44 @@ if (window.chrome && window.chrome.webview) {
     });
 }
 
+function inicializarEventosNavegacion() {
+    const menuExpedientes = document.getElementById('menuExpedientes');
+    const menuConsulta = document.getElementById('menuConsulta');
+    const menuPago = document.getElementById('menuPago');
+
+    if (menuExpedientes) {
+        menuExpedientes.onclick = (e) => {
+            e.preventDefault();
+            navegar('expedientes');
+        };
+    }
+    if (menuConsulta) {
+        menuConsulta.onclick = (e) => {
+            e.preventDefault();
+            navegar('consulta');
+        };
+    }
+    if (menuPago) {
+        menuPago.onclick = (e) => {
+            e.preventDefault();
+            navegar('pago');
+        };
+    }
+}
+
 function navegar(accion) {
     if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(accion);
+        window.chrome.webview.postMessage(JSON.stringify({
+            accion: "NAVEGAR",
+            modulo: accion,
+            rol: localStorage.getItem('usuarioRol') || 'admin'
+        }));
+    } else {
+        if (accion === 'cerrarSesion' || accion === 'cerrar_sesion') {
+            window.location.href = 'login.html';
+        } else {
+            window.location.href = `${accion}.html`;
+        }
     }
 }
 
@@ -67,7 +104,7 @@ function renderizarListaPagos(pagos) {
     contenedor.innerHTML = '';
 
     if (listaPagosCache.length === 0) {
-        contenedor.innerHTML = `<li style="padding:15px; color:var(--text-muted); font-size:13px; text-align:center;">No hay cobros pendientes</li>`;
+        contenedor.innerHTML = `<li style="padding:15px; color:var(--text-muted); font-size:13px; text-align:center;">No hay facturas pendientes</li>`;
         return;
     }
 
@@ -155,7 +192,7 @@ function calcularCambio() {
 
 function procesarPago() {
     if (!pagoSeleccionado) {
-        alert("Selecciona un paciente para procesar el pago.");
+        alert("Selecciona un paciente para generar la factura.");
         return;
     }
 

@@ -71,7 +71,7 @@
             </div>
 
             <div class="history-modal-body">
-                <!-- Se llena dinámicamente al aceptar paciente -->
+                <!-- Contenido dinámico -->
             </div>
         </div>
     </div>
@@ -118,11 +118,11 @@
         <aside class="queue-panel">
             <div class="panel-title">Pacientes en Espera</div>
             <ul class="queue-list" id="listaEspera">
-                <!-- Carga únicamente pacientes dinámicos desde la base de datos -->
+                <!-- Carga dinámica -->
             </ul>
         </aside>
 
-        <!-- Estado Vacío: Se muestra cuando NO hay expediente seleccionado -->
+        <!-- Estado Vacío -->
         <section class="workspace-panel" id="emptyWorkspace" style="display: flex; align-items: center; justify-content: center; min-height: 450px;">
             <div class="workspace-card" style="width: 100%; text-align: center; padding: 48px 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
                 <div style="width: 64px; height: 64px; background: var(--primary-light); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -196,17 +196,16 @@
 
             <div class="workspace-card">
                 <div class="panel-title">Diagnóstico Clínico Manual</div>
-                <textarea id="txtDiagnostico" class="form-control" rows="4"></textarea>
+                <textarea id="txtDiagnostico" class="form-control" rows="4" placeholder="Ingrese las observaciones clínicas y diagnóstico del paciente..."></textarea>
             </div>
 
             <div class="workspace-card">
                 <div class="panel-title">Prescripción (Generador de Fármacos)</div>
 
-                <!-- Controles de entrada de fármacos -->
                 <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-                    <input type="text" id="inputMedicamentoNombre" class="form-control" style="flex: 1;">
-                    <input type="text" id="inputMedicamentoDosis" class="form-control" style="flex: 2;">
-                    <button type="button" class="btn-action" onclick="agregarMedicamentoTabla()" style="padding: 0 16px; white-space: nowrap;">
+                    <input type="text" id="inputMedicamentoNombre" placeholder="Nombre del medicamento (ej: Paracetamol 500mg)" class="form-control" style="flex: 1;">
+                    <input type="text" id="inputMedicamentoDosis" placeholder="Dosis e indicaciones (ej: 1 tableta c/8h por 5 días)" class="form-control" style="flex: 2;">
+                    <button type="button" class="btn-action" onclick="agregarMedicamentoTabla()" style="padding: 0 16px; white-space: nowrap; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
                         + Agregar
                     </button>
                 </div>
@@ -220,7 +219,7 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyReceta">
-                        <!-- Se llena dinámicamente con JavaScript -->
+                        <!-- Llenado dinámico -->
                     </tbody>
                 </table>
                 <button class="btn-print" onclick="finalizarConsulta()" style="margin-top: 16px;">Finalizar e Imprimir Receta Física</button>

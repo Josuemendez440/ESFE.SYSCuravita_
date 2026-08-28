@@ -458,12 +458,6 @@ body {
     margin-bottom: 8px;
 }
 
-.history-desc {
-    font-size: 13px;
-    color: var(--text-muted);
-    line-height: 1.5;
-}
-
 .main-content {
     flex-grow: 1;
     margin-left: 280px;
@@ -519,15 +513,9 @@ body {
     transition: all 0.2s ease;
 }
 
-    .queue-item:hover {
+    .queue-item:hover, .queue-item.active {
         border-color: var(--primary);
         background: var(--primary-light);
-    }
-
-    .queue-item.active {
-        border-color: var(--primary);
-        background: var(--primary-light);
-        box-shadow: 0 2px 8px rgba(25,83,102,0.05);
     }
 
     .queue-item b {
@@ -596,12 +584,6 @@ body {
         letter-spacing: 0.5px;
     }
 
-    .vital-box p {
-        font-size: 16px;
-        font-weight: 700;
-        color: var(--text-main);
-    }
-
 .form-control {
     width: 100%;
     padding: 14px;
@@ -665,11 +647,6 @@ body {
         background: var(--danger-light);
     }
 
-    .btn-delete svg {
-        width: 18px;
-        height: 18px;
-    }
-
 .btn-print {
     background: var(--primary);
     color: var(--white);
@@ -689,26 +666,6 @@ body {
         background: var(--primary-dark);
     }
 
-.btn-simulate {
-    width: 100%;
-    padding: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    background: #FAFCFC;
-    border: 1px dashed var(--border);
-    cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.2s;
-    margin-top: 16px;
-}
-
-    .btn-simulate:hover {
-        background: var(--primary-light);
-        color: var(--primary);
-        border-color: var(--primary);
-    }
-
 @media (max-width: 1150px) {
     .main-content {
         grid-template-columns: 1fr;
@@ -725,7 +682,6 @@ body {
     }
 }
 
-/* Notificaciones Flotantes (Toast) */
 .toast-notificacion {
     position: fixed;
     top: 20px;

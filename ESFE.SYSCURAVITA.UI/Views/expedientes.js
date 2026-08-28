@@ -5,36 +5,71 @@ let btnTempElement = null;
 document.addEventListener('DOMContentLoaded', () => {
     const rolGuardado = localStorage.getItem('usuarioRol');
     if (rolGuardado) aplicarPermisos(rolGuardado);
+
+    inicializarEventosNavegacion();
     actualizarEstadoBotones();
     aplicarValidacionesCampos();
+
+    // Notificar a C# que la vista está lista para recibir pacientes
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({ accion: "obtener_pacientes" }));
+    }
 });
 
 window.addEventListener('focus', actualizarEstadoBotones);
 window.addEventListener('storage', actualizarEstadoBotones);
 
-// Escuchador de mensajes desde C# (WebView2)
+// Listener para mensajes entrantes desde C# (WebView2)
 if (window.chrome && window.chrome.webview) {
     window.chrome.webview.addEventListener('message', function (event) {
-        const datos = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        let datos = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 
-        if (datos.Accion === "CARGAR_PACIENTES" || datos.Accion === "EXPEDIENTE_GUARDADO") {
-            if (datos.Pacientes) {
-                renderizarTabla(datos.Pacientes);
+        const accion = datos.accion || datos.Accion;
+        const listaPacientes = datos.pacientes || datos.Pacientes;
+
+        if (accion === "CARGAR_PACIENTES" || accion === "EXPEDIENTE_GUARDADO") {
+            if (listaPacientes) {
+                renderizarTabla(listaPacientes);
             }
-        } else if (datos.Accion === "REGISTRO_ELIMINADO") {
-            const idBorrado = datos.PacienteId;
+        } else if (accion === "REGISTRO_ELIMINADO") {
+            const idBorrado = datos.pacienteId || datos.PacienteId;
             pacientesCache = pacientesCache.filter(p => (p.paciente_id || p.id) !== idBorrado);
             renderizarTabla(pacientesCache);
 
             let listaEspera = JSON.parse(localStorage.getItem('listaEspera') || '[]');
             listaEspera = listaEspera.filter(p => (p.paciente_id || p.id) !== idBorrado);
             localStorage.setItem('listaEspera', JSON.stringify(listaEspera));
-            localStorage.removeItem(`historial_${idBorrado}`);
         }
     });
 }
 
+function inicializarEventosNavegacion() {
+    const menuExpedientes = document.getElementById('menuExpedientes');
+    const menuConsulta = document.getElementById('menuConsulta');
+    const menuPago = document.getElementById('menuPago');
+
+    if (menuExpedientes) {
+        menuExpedientes.onclick = (e) => {
+            e.preventDefault();
+            navegar('expedientes');
+        };
+    }
+    if (menuConsulta) {
+        menuConsulta.onclick = (e) => {
+            e.preventDefault();
+            navegar('consulta');
+        };
+    }
+    if (menuPago) {
+        menuPago.onclick = (e) => {
+            e.preventDefault();
+            navegar('pago');
+        };
+    }
+}
+
 function aplicarValidacionesCampos() {
+    // Nombres y Apellidos solo letras y espacios
     const inputsSoloTexto = document.querySelectorAll('#inputNombres, #inputApellidos');
     inputsSoloTexto.forEach(input => {
         if (!input) return;
@@ -43,21 +78,37 @@ function aplicarValidacionesCampos() {
         });
     });
 
-    const inputsNumericos = document.querySelectorAll('#inputDUI, #inputTelefono');
-    inputsNumericos.forEach(input => {
-        if (!input) return;
-        input.addEventListener('input', (e) => {
-            e.target.value = e.target.value.replace(/[^0-9-]/g, '');
+    // Máscara DUI (00000000-0)
+    const inputDUI = document.getElementById('inputDUI');
+    if (inputDUI) {
+        inputDUI.addEventListener('input', (e) => {
+            let val = e.target.value.replace(/\D/g, '');
+            if (val.length > 8) {
+                val = val.substring(0, 8) + '-' + val.substring(8, 9);
+            }
+            e.target.value = val;
         });
-    });
+    }
 
-    const inputsAlfanumericos = document.querySelectorAll('#searchInput');
-    inputsAlfanumericos.forEach(input => {
-        if (!input) return;
-        input.addEventListener('input', (e) => {
+    // Máscara Teléfono (0000-0000)
+    const inputTel = document.getElementById('inputTelefono');
+    if (inputTel) {
+        inputTel.addEventListener('input', (e) => {
+            let val = e.target.value.replace(/\D/g, '');
+            if (val.length > 4) {
+                val = val.substring(0, 4) + '-' + val.substring(4, 8);
+            }
+            e.target.value = val;
+        });
+    }
+
+    // Input Búsqueda
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
             e.target.value = e.target.value.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s.,/()-]/g, '');
         });
-    });
+    }
 }
 
 function renderizarTabla(pacientes) {
@@ -79,7 +130,6 @@ function renderizarTabla(pacientes) {
         const apellidos = p.apellidos || p.Apellidos || '';
         const nombreCompleto = p.nombreCompleto || `${nombres} ${apellidos}`.trim() || 'Sin Nombre';
         const dui = p.dui_documento || p.Dui_documento || p.dui || p.Dui || 'N/A';
-
         const uid = `${codigo}_${dui}_${nombreCompleto}`;
 
         const enEspera = listaEspera.some(item => {
@@ -98,7 +148,7 @@ function renderizarTabla(pacientes) {
             apellidos: apellidos,
             nombreCompleto: nombreCompleto,
             dui_documento: dui,
-            fecha_nacimiento: p.fecha_nacimiento || null
+            fecha_nacimiento: p.fecha_nacimiento || p.FechaNacimiento || null
         };
 
         agregarFilaTabla(tbody, pData, enEspera);
@@ -138,10 +188,10 @@ function handleCreate(e) {
 
     const payload = {
         accion: "guardar_expediente",
-        nombres: document.getElementById('inputNombres').value,
-        apellidos: document.getElementById('inputApellidos').value,
-        dui_documento: document.getElementById('inputDUI').value,
-        telefono: inputTel ? inputTel.value : "",
+        nombres: document.getElementById('inputNombres').value.trim(),
+        apellidos: document.getElementById('inputApellidos').value.trim(),
+        dui_documento: document.getElementById('inputDUI').value.trim(),
+        telefono: inputTel ? inputTel.value.trim() : "",
         fecha_nacimiento: inputFecha ? inputFecha.value : null
     };
 
@@ -165,13 +215,15 @@ function abrirModalEspecialidad(btnElement, paciente) {
     document.getElementById('modalPacienteEdad').innerText = edad;
 
     evaluarEspecialidadPorEdad(edad);
-
     document.getElementById('modalEspecialidad').style.display = 'flex';
 }
 
 function calcularEdad(fechaNacimientoStr) {
     if (!fechaNacimientoStr) return 18;
-    const nacimiento = new Date(fechaNacimientoStr);
+    const partes = fechaNacimientoStr.split('T')[0].split('-');
+    if (partes.length < 3) return 18;
+
+    const nacimiento = new Date(partes[0], partes[1] - 1, partes[2]);
     const hoy = new Date();
     let edad = hoy.getFullYear() - nacimiento.getFullYear();
     const mes = hoy.getMonth() - nacimiento.getMonth();
@@ -258,16 +310,16 @@ function confirmarEnviarAConsulta() {
 
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({
-            Accion: "CREAR_CONSULTA",
-            paciente_id: datosConsulta.paciente_id,
-            especialidad_id: datosConsulta.especialidad_id,
-            monto_consulta: datosConsulta.monto_consulta,
-            recepcionista_id: parseInt(localStorage.getItem('usuarioId') || '1')
+            accion: "crear_consulta",
+            pacienteId: datosConsulta.paciente_id,
+            especialidadId: datosConsulta.especialidad_id,
+            montoConsulta: datosConsulta.monto_consulta,
+            recepcionistaId: parseInt(localStorage.getItem('usuarioId') || '1')
         }));
 
         window.chrome.webview.postMessage(JSON.stringify({
-            Accion: "AGREGAR_A_ESPERA",
-            Paciente: datosConsulta
+            accion: "agregar_a_espera",
+            paciente: datosConsulta
         }));
     }
 
@@ -276,7 +328,17 @@ function confirmarEnviarAConsulta() {
 
 function navegar(accion) {
     if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(accion);
+        window.chrome.webview.postMessage(JSON.stringify({
+            accion: "NAVEGAR",
+            modulo: accion,
+            rol: localStorage.getItem('usuarioRol') || 'admin'
+        }));
+    } else {
+        if (accion === 'cerrarSesion' || accion === 'cerrar_sesion') {
+            window.location.href = 'login.html';
+        } else {
+            window.location.href = `${accion}.html`;
+        }
     }
 }
 
@@ -296,7 +358,7 @@ function openLogoutModal() { document.getElementById('logoutModal').style.displa
 function closeLogoutModal() { document.getElementById('logoutModal').style.display = 'none'; }
 function confirmLogout() {
     localStorage.removeItem('usuarioRol');
-    navegar('cerrarSesion');
+    navegar('cerrar_sesion');
 }
 
 function openSuccessModal(mensaje) {
