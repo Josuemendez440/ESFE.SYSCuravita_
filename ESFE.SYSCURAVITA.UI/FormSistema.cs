@@ -236,6 +236,7 @@ namespace ESFE.SYSCURAVITA.UI
                         int pacienteId = ObtenerInt(root, "PacienteId", "pacienteId");
                         string codigoExpediente = ObtenerString(root, "CodigoExpediente", "codigoExpediente", "codigo_expediente");
                         string diagnostico = ObtenerString(root, "Diagnostico", "diagnostico");
+                        decimal montoConsulta = ObtenerDecimal(root, "MontoConsulta", "montoConsulta", "monto_consulta", "Monto", "monto");
 
                         // Signos Vitales
                         string paSistolica = ObtenerString(root, "PresionSistolica", "PA");
@@ -253,28 +254,24 @@ namespace ESFE.SYSCURAVITA.UI
                         string peso = ObtenerString(root, "Peso", "peso");
                         if (string.IsNullOrEmpty(peso)) peso = "N/A";
 
-                        // Receta
-                        string recetaText = "";
+                        // Receta (Lista de tuplas para separar Medicamento e Indicaciones/Dosis)
+                        var medicamentos = new List<(string Medicamento, string Dosis)>();
+
                         if (root.TryGetProperty("Medicamentos", out var medsProp) && medsProp.ValueKind == JsonValueKind.Array)
                         {
-                            var listaMeds = new List<string>();
                             foreach (var med in medsProp.EnumerateArray())
                             {
-                                string medNombre = ObtenerString(med, "Medicamento", "medicamento");
-                                string medDosis = ObtenerString(med, "IndicacionesDosis", "indicacionesDosis", "dosis");
-                                if (!string.IsNullOrEmpty(medNombre))
+                                string medNombre = ObtenerString(med, "Medicamento", "medicamento", "nombre");
+                                string medDosis = ObtenerString(med, "IndicacionesDosis", "indicacionesDosis", "dosis", "indicaciones");
+
+                                if (!string.IsNullOrWhiteSpace(medNombre))
                                 {
-                                    listaMeds.Add(string.IsNullOrEmpty(medDosis) ? medNombre : $"{medNombre} ({medDosis})");
+                                    medicamentos.Add((medNombre, medDosis));
                                 }
                             }
-                            recetaText = string.Join(", ", listaMeds);
-                        }
-                        else
-                        {
-                            recetaText = ObtenerString(root, "Receta", "receta");
                         }
 
-                        bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico, pa, fc, temp, peso, recetaText);
+                        bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico, pa, fc, temp, peso, montoConsulta, medicamentos);
 
                         var respuesta = new
                         {

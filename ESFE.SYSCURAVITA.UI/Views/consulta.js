@@ -476,12 +476,21 @@ function finalizarConsulta() {
     const nombreCompleto = pacientePendiente.nombreCompleto || `${pacientePendiente.nombres || ''} ${pacientePendiente.apellidos || ''}`.trim();
     const codigoExp = pacientePendiente.codigo_expediente || pacientePendiente.codigoExpediente || pacientePendiente.codigo || 'N/A';
 
+    // Capturar el monto real proveniente del objeto del paciente/cita o usar 25.00 de respaldo
+    const montoCalculado = parseFloat(
+        pacientePendiente.monto_consulta ||
+        pacientePendiente.montoConsulta ||
+        pacientePendiente.monto ||
+        pacientePendiente.precio ||
+        25.00
+    );
+
     const nuevoCobro = {
         paciente_id: String(pacienteSeleccionadoId),
         codigo_expediente: codigoExp,
         nombreCompleto: nombreCompleto,
         especialidad_nombre: pacientePendiente.especialidad_nombre || pacientePendiente.especialidadNombre || 'Consulta Médica',
-        monto_consulta: pacientePendiente.monto_consulta || pacientePendiente.montoConsulta || 35.00
+        monto_consulta: montoCalculado
     };
 
     let listaPagos = JSON.parse(localStorage.getItem('listaPagos') || '[]');
@@ -503,6 +512,8 @@ function finalizarConsulta() {
             FC: fc,
             Temp: temp,
             Peso: peso,
+            MontoConsulta: montoCalculado, // <--- CAMBIO: Se agrega el monto al JSON enviado a C#
+            Monto: montoCalculado,          // <--- CAMBIO: Alias por compatibilidad
             Medicamentos: listaReceta.map(m => ({
                 Medicamento: String(m.medicamento),
                 IndicacionesDosis: String(m.indicaciones || 'Sin indicaciones')

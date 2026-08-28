@@ -14,7 +14,8 @@ namespace ESFE.SYSCURAVITA_DAL
             string? fc = "N/A",
             string? temp = "N/A",
             string? peso = "N/A",
-            string? receta = "")
+            decimal montoConsulta = 0.00m,
+            List<(string Medicamento, string Dosis)>? medicamentos = null)
         {
             using var conexion = ConexionDAL.ObtenerConexion();
             if (conexion == null) return false;
@@ -41,16 +42,17 @@ namespace ESFE.SYSCURAVITA_DAL
 
                 if (idRealPaciente == 0) return false;
 
-                // B. Insertar en tabla Consultas
+                // B. Insertar en tabla Consultas con el monto recibídode la interfaz
                 string sqlInsertConsulta = @"
                     INSERT INTO Consultas (paciente_id, recepcionista_id, fecha_consulta, tipo_atencion_id, estado_consulta_id, monto_consulta, es_emergencia)
-                    VALUES (@PacienteId, 1, GETDATE(), 1, 1, 0.00, 0);
+                    VALUES (@PacienteId, 1, GETDATE(), 1, 1, @MontoConsulta, 0);
                     SELECT SCOPE_IDENTITY();";
 
                 int nuevaConsultaId = 0;
                 using (var cmdIns = new SqlCommand(sqlInsertConsulta, conexion, transaccion))
                 {
                     cmdIns.Parameters.AddWithValue("@PacienteId", idRealPaciente);
+                    cmdIns.Parameters.AddWithValue("@MontoConsulta", montoConsulta);
                     object? newId = cmdIns.ExecuteScalar();
                     if (newId != null && newId != DBNull.Value)
                     {
@@ -103,8 +105,8 @@ namespace ESFE.SYSCURAVITA_DAL
                     cmdD.ExecuteNonQuery();
                 }
 
-                // E. Insertar Receta y Detalle (si existe receta)
-                if (!string.IsNullOrWhiteSpace(receta))
+                // E. Insertar Receta y Detalle (si existen medicamentos)
+                if (medicamentos != null && medicamentos.Count > 0)
                 {
                     string sqlInsertReceta = @"
                         INSERT INTO Recetas (consulta_id, fecha_registro)
@@ -126,12 +128,16 @@ namespace ESFE.SYSCURAVITA_DAL
                     {
                         string sqlInsertDetalle = @"
                             INSERT INTO DetalleRecetas (receta_id, medicamento, indicaciones_dosis)
-                            VALUES (@RecetaId, 'Formulación Médica', @Indicaciones);";
+                            VALUES (@RecetaId, @Medicamento, @Indicaciones);";
 
-                        using var cmdDet = new SqlCommand(sqlInsertDetalle, conexion, transaccion);
-                        cmdDet.Parameters.AddWithValue("@RecetaId", recetaId);
-                        cmdDet.Parameters.AddWithValue("@Indicaciones", receta);
-                        cmdDet.ExecuteNonQuery();
+                        foreach (var item in medicamentos)
+                        {
+                            using var cmdDet = new SqlCommand(sqlInsertDetalle, conexion, transaccion);
+                            cmdDet.Parameters.AddWithValue("@RecetaId", recetaId);
+                            cmdDet.Parameters.AddWithValue("@Medicamento", item.Medicamento);
+                            cmdDet.Parameters.AddWithValue("@Indicaciones", string.IsNullOrWhiteSpace(item.Dosis) ? DBNull.Value : item.Dosis);
+                            cmdDet.ExecuteNonQuery();
+                        }
                     }
                 }
 
@@ -158,7 +164,7 @@ namespace ESFE.SYSCURAVITA_DAL
                     FORMAT(d.fecha_registro, 'd/M/yyyy') AS fecha,
                     FORMAT(d.fecha_registro, 'hh:mm') AS hora,
                     d.conclusion_diagnostico AS diagnostico,
-                    ISNULL('PA: ' + CAST(t.presion_sistolica AS varchar) + '/' + CAST(t.presion_diastolica AS varchar) + ' mmHg | FC: ' + CAST(t.frecuencia_cardiaca AS varchar) + ' lpm | Temp: ' + CAST(t.temperatura AS varchar) + ' °C | Peso: ' + CAST(t.peso_kg AS varchar) + ' Kg' + CHAR(13) + CHAR(10) + ISNULL('Receta: ' + dr.indicaciones_dosis, 'Sin medicamentos formulados.'), '') AS observaciones
+                    ISNULL('PA: ' + CAST(t.presion_sistolica AS varchar) + '/' + CAST(t.presion_diastolica AS varchar) + ' mmHg | FC: ' + CAST(t.frecuencia_cardiaca AS varchar) + ' lpm | Temp: ' + CAST(t.temperatura AS varchar) + ' °C | Peso: ' + CAST(t.peso_kg AS varchar) + ' Kg' + CHAR(13) + CHAR(10) + ISNULL('Receta: ' + dr.medicamento + ' (' + dr.indicaciones_dosis + ')', 'Sin medicamentos formulados.'), '') AS observaciones
                 FROM [dbo].[Diagnosticos] d
                 INNER JOIN [dbo].[Consultas] c ON d.consulta_id = c.consulta_id
                 INNER JOIN [dbo].[Pacientes] p ON c.paciente_id = p.paciente_id

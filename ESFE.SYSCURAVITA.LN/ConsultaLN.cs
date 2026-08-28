@@ -9,10 +9,10 @@ namespace ESFE.SYSCURAVITA.LN
         // Sobrecarga de compatibilidad (3 parámetros)
         public static bool GuardarDiagnostico(int pacienteId, string? codigoExpediente, string? diagnosticoTexto)
         {
-            return ConsultaDAL.GuardarDiagnostico(pacienteId, codigoExpediente, diagnosticoTexto);
+            return ConsultaDAL.GuardarDiagnostico(pacienteId, codigoExpediente, diagnosticoTexto, montoConsulta: 0.00m);
         }
 
-        // Sobrecarga completa (8 parámetros): reenvía directamente los signos vitales a ConsultaDAL
+        // Sobrecarga completa incluyendo montoConsulta y lista estructurada de medicamentos
         public static bool GuardarDiagnostico(
             int pacienteId,
             string? codigoExpediente,
@@ -21,7 +21,8 @@ namespace ESFE.SYSCURAVITA.LN
             string? fc,
             string? temperatura,
             string? peso,
-            string? receta)
+            decimal montoConsulta,
+            List<(string Medicamento, string Dosis)>? medicamentos)
         {
             return ConsultaDAL.GuardarDiagnostico(
                 pacienteId,
@@ -31,7 +32,8 @@ namespace ESFE.SYSCURAVITA.LN
                 fc,
                 temperatura,
                 peso,
-                receta
+                montoConsulta,
+                medicamentos
             );
         }
 

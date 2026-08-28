@@ -14,21 +14,26 @@ namespace ESFE.SYSCURAVITA_DAL
                 {
                     conn.Open();
 
-                    // Incluimos paciente_id por si la tabla lo requiere en la base de datos
-                    string query = @"INSERT INTO Facturas 
-                                    (NumeroFactura, PacienteNombre, MetodoPago, Subtotal, Iva, Total, FechaEmision) 
-                                     VALUES 
-                                    (@NumeroFactura, @PacienteNombre, @MetodoPago, @Subtotal, @Iva, @Total, @FechaEmision)";
+                    // Mapeo de Método de Pago a ID (Ajusta los IDs según tu BD)
+                    int metodoPagoId = (factura.MetodoPago == "Tarjeta") ? 2 : 1; // 1: Efectivo, 2: Tarjeta
+                    int estadoPagoId = 1; // 1: Pagado / Completado
+                    int cajeroId = 1;     // ID por defecto del cajero o usuario activo
 
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    // Inserción directa a la tabla 'pago'
+                    string queryPago = @"INSERT INTO pago 
+                                        (consulta_id, metodo_pago_id, estado_pago_id, monto_pagado, fecha_pago, cajero_id) 
+                                         VALUES 
+                                        (@ConsultaId, @MetodoPagoId, @EstadoPagoId, @MontoPagado, @FechaPago, @CajeroId)";
+
+                    using (SqlCommand cmd = new SqlCommand(queryPago, conn))
                     {
-                        cmd.Parameters.AddWithValue("@NumeroFactura", factura.NumeroFactura ?? string.Empty);
-                        cmd.Parameters.AddWithValue("@PacienteNombre", string.IsNullOrWhiteSpace(factura.PacienteNombre) ? "Consumidor Final" : factura.PacienteNombre);
-                        cmd.Parameters.AddWithValue("@MetodoPago", factura.MetodoPago ?? string.Empty);
-                        cmd.Parameters.AddWithValue("@Subtotal", factura.Subtotal);
-                        cmd.Parameters.AddWithValue("@Iva", factura.Iva);
-                        cmd.Parameters.AddWithValue("@Total", factura.Total);
-                        cmd.Parameters.AddWithValue("@FechaEmision", factura.FechaEmision);
+                        // Se usa PacienteId como referencia de consulta si se envía en el DTO
+                        cmd.Parameters.AddWithValue("@ConsultaId", factura.PacienteId);
+                        cmd.Parameters.AddWithValue("@MetodoPagoId", metodoPagoId);
+                        cmd.Parameters.AddWithValue("@EstadoPagoId", estadoPagoId);
+                        cmd.Parameters.AddWithValue("@MontoPagado", factura.Total);
+                        cmd.Parameters.AddWithValue("@FechaPago", factura.FechaEmision);
+                        cmd.Parameters.AddWithValue("@CajeroId", cajeroId);
 
                         return cmd.ExecuteNonQuery() > 0;
                     }
