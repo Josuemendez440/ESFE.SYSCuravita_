@@ -1,6 +1,7 @@
-﻿let pagoSeleccionado = null;
+let pagoSeleccionado = null;
 let listaPagosCache = [];
 let metodoPagoActual = 'Efectivo';
+let ultimoNumeroFacturaServidor = '';
 
 document.addEventListener('DOMContentLoaded', () => {
     const rolGuardado = localStorage.getItem('usuarioRol');
@@ -8,6 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     inicializarEventosNavegacion();
     cargarListaPagosLocal();
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_SIGUIENTE_NUMERO_FACTURA" }));
+    }
 });
 
 if (window.chrome && window.chrome.webview) {
@@ -15,9 +19,16 @@ if (window.chrome && window.chrome.webview) {
         const datos = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (datos.Accion === "CARGAR_PAGOS_PENDIENTES") {
             renderizarListaPagos(datos.Pagos || []);
+        } else if (datos.Accion === "SIGUIENTE_NUMERO_FACTURA") {
+            if (datos.NumeroFactura) {
+                ultimoNumeroFacturaServidor = datos.NumeroFactura;
+                const inputFac = document.getElementById('inputNumFactura');
+                if (inputFac) inputFac.value = datos.NumeroFactura;
+            }
         } else if (datos.Accion === "PAGO_REGISTRADO") {
             if (datos.Exito) {
                 mostrarToast(datos.Mensaje || "Factura registrada e impresa correctamente.");
+                window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_SIGUIENTE_NUMERO_FACTURA" }));
             }
         } else if (datos.Accion === "REGISTRO_ELIMINADO") {
             const idBorrado = datos.PacienteId;
@@ -161,9 +172,13 @@ function seleccionarPago(p, elementoHtml) {
     workspace.style.display = 'flex';
 
     document.getElementById('lblPagoPaciente').value = nombre;
-    document.getElementById('inputNumFactura').value = obtenerSiguienteNumeroFactura();
+    document.getElementById('inputNumFactura').value = ultimoNumeroFacturaServidor || obtenerSiguienteNumeroFactura();
     document.getElementById('inputFechaPago').value = new Date().toLocaleDateString('es-ES');
     document.getElementById('lblPagoMontoTotal').innerText = `$${monto}`;
+
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_SIGUIENTE_NUMERO_FACTURA" }));
+    }
 
     selectMethod('efectivo');
 }
@@ -227,6 +242,8 @@ function procesarPago() {
             NumeroFactura: numFactura,
             PacienteId: pId,
             Paciente: nombre,
+            CodigoExpediente: pagoSeleccionado.codigo_expediente || pagoSeleccionado.codigoExpediente || '',
+            Especialidad: pagoSeleccionado.especialidad_nombre || pagoSeleccionado.especialidad || 'Consulta General',
             MetodoPago: metodoPagoActual,
             MontoTotal: total,
             MontoRecibido: recibido,

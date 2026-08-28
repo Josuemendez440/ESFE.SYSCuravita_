@@ -1,4 +1,4 @@
-﻿let pacientePendiente = null;
+let pacientePendiente = null;
 let pacienteSeleccionadoId = 0;
 let listaReceta = [];
 
@@ -512,6 +512,7 @@ function finalizarConsulta() {
             Accion: "GUARDAR_CONSULTA",
             ConsultaId: 0,
             PacienteId: parseInt(pacienteSeleccionadoId, 10) || 0,
+            PacienteNombre: String(nombreCompleto),
             CodigoExpediente: String(codigoExp),
             Diagnostico: String(diag),
             MotivoConsulta: String(motivoConsultaVar), // 👈 ENVIADO A C#
