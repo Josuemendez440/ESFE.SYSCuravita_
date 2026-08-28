@@ -114,6 +114,17 @@ if (window.chrome && window.chrome.webview) {
                 const exito = datos.Exito !== undefined ? datos.Exito : datos.exito;
                 if (exito) {
                     mostrarToast("Consulta procesada y guardada exitosamente en la BD", "exito");
+                    if (datos.NumeroFactura && datos.PacienteId) {
+                        let listaPagos = JSON.parse(localStorage.getItem('listaPagos') || '[]');
+                        const pIdStr = String(datos.PacienteId);
+                        const itemPago = listaPagos.find(p => String(p.paciente_id || p.pacienteId || p.id) === pIdStr);
+                        if (itemPago) {
+                            itemPago.numero_factura = datos.NumeroFactura;
+                            itemPago.numero_receta = datos.NumeroReceta;
+                            itemPago.correlativo = datos.Correlativo;
+                            localStorage.setItem('listaPagos', JSON.stringify(listaPagos));
+                        }
+                    }
                     if (pacienteSeleccionadoId) {
                         obtenerHistorialCompleto();
                     }

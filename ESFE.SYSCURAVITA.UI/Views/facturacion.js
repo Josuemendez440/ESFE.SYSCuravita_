@@ -23,7 +23,9 @@ if (window.chrome && window.chrome.webview) {
             if (datos.NumeroFactura) {
                 ultimoNumeroFacturaServidor = datos.NumeroFactura;
                 const inputFac = document.getElementById('inputNumFactura');
-                if (inputFac) inputFac.value = datos.NumeroFactura;
+                if (inputFac && (!pagoSeleccionado || (!pagoSeleccionado.numero_factura && !pagoSeleccionado.numeroFactura))) {
+                    inputFac.value = datos.NumeroFactura;
+                }
             }
         } else if (datos.Accion === "PAGO_REGISTRADO") {
             if (datos.Exito) {
@@ -172,11 +174,14 @@ function seleccionarPago(p, elementoHtml) {
     workspace.style.display = 'flex';
 
     document.getElementById('lblPagoPaciente').value = nombre;
-    document.getElementById('inputNumFactura').value = ultimoNumeroFacturaServidor || obtenerSiguienteNumeroFactura();
+    
+    // Asignar el número de factura que coincide con el de la receta
+    const numFactura = p.numero_factura || p.numeroFactura || ultimoNumeroFacturaServidor || obtenerSiguienteNumeroFactura();
+    document.getElementById('inputNumFactura').value = numFactura;
     document.getElementById('inputFechaPago').value = new Date().toLocaleDateString('es-ES');
     document.getElementById('lblPagoMontoTotal').innerText = `$${monto}`;
 
-    if (window.chrome && window.chrome.webview) {
+    if (!p.numero_factura && !p.numeroFactura && window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_SIGUIENTE_NUMERO_FACTURA" }));
     }
 
@@ -232,7 +237,11 @@ function procesarPago() {
         return;
     }
 
-    const numFactura = obtenerSiguienteNumeroFactura();
+    const inputFac = document.getElementById('inputNumFactura');
+    const numFactura = (inputFac && inputFac.value) 
+        ? inputFac.value 
+        : (pagoSeleccionado.numero_factura || pagoSeleccionado.numeroFactura || obtenerSiguienteNumeroFactura());
+        
     const pId = pagoSeleccionado.paciente_id || pagoSeleccionado.id || pagoSeleccionado.consulta_id;
     const nombre = pagoSeleccionado.nombreCompleto || `${pagoSeleccionado.nombres || ''} ${pagoSeleccionado.apellidos || ''}`.trim();
 
@@ -252,8 +261,6 @@ function procesarPago() {
     }
 
     mostrarToast("Factura registrada e impresa correctamente.");
-
-    incrementarNumeroFactura();
 
     let listaLocal = JSON.parse(localStorage.getItem('listaPagos') || '[]');
     listaLocal = listaLocal.filter(p => (p.paciente_id || p.id || p.consulta_id) !== pId);

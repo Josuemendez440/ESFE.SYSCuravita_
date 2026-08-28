@@ -28,6 +28,10 @@ namespace ESFE.SYSCURAVITA.UI
         private async void CargarVistaLogin()
         {
             await webView21.EnsureCoreWebView2Async(null);
+
+            // 🚫 Desactiva la barra negra inferior que muestra la URL del archivo
+            webView21.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
             webView21.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
 
             string rutaHtml = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Views", "login.html");

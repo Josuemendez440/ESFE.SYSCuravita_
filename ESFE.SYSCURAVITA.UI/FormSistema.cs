@@ -34,6 +34,8 @@ namespace ESFE.SYSCURAVITA.UI
 
             Directory.CreateDirectory(_rutaCarpetaRecetas);
             Directory.CreateDirectory(_rutaCarpetaFacturas);
+
+            InicializarCorrelativoSecuencia();
         }
 
         private static string ObtenerRutaRaizSolucion()
@@ -354,6 +356,10 @@ namespace ESFE.SYSCURAVITA.UI
 
                         if (guardado)
                         {
+                            int nuevoCorrelativo = ObtenerYSiguienteCorrelativo();
+                            string numeroReceta = $"REC-{nuevoCorrelativo:D5}";
+                            string numeroFactura = $"FAC-{nuevoCorrelativo:D5}";
+
                             try
                             {
                                 // Obtener nombre del paciente
@@ -364,7 +370,6 @@ namespace ESFE.SYSCURAVITA.UI
                                     nombrePaciente = pObj != null ? $"{pObj.nombres} {pObj.apellidos}".Trim() : "Paciente";
                                 }
 
-                                string numeroReceta = ObtenerSiguienteNumeroReceta();
                                 string htmlReceta = GenerarHtmlReceta(
                                     numeroReceta,
                                     nombrePaciente,
@@ -388,15 +393,28 @@ namespace ESFE.SYSCURAVITA.UI
                             {
                                 System.Diagnostics.Debug.WriteLine("Error al generar PDF de receta: " + exReceta.Message);
                             }
+
+                            var respuesta = new
+                            {
+                                Accion = "CONSULTA_GUARDADA",
+                                Exito = true,
+                                NumeroReceta = numeroReceta,
+                                NumeroFactura = numeroFactura,
+                                Correlativo = nuevoCorrelativo,
+                                PacienteId = pacienteId
+                            };
+
+                            webView21.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(respuesta));
                         }
-
-                        var respuesta = new
+                        else
                         {
-                            Accion = "CONSULTA_GUARDADA",
-                            Exito = guardado
-                        };
-
-                        webView21.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(respuesta));
+                            var respuesta = new
+                            {
+                                Accion = "CONSULTA_GUARDADA",
+                                Exito = false
+                            };
+                            webView21.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(respuesta));
+                        }
                     }
                     else if (accion.Equals("OBTENER_HISTORIAL", StringComparison.OrdinalIgnoreCase))
                     {
@@ -622,87 +640,139 @@ namespace ESFE.SYSCURAVITA.UI
             }
         }
 
-        #region Autoincremento Seguro de Facturas y Recetas
-        private string ObtenerSiguienteNumeroFactura()
-        {
-            int maxNumero = 0;
-            try
-            {
-                using var conn = ConexionDAL.ObtenerConexion();
-                conn.Open();
-                using var cmd = new SqlCommand("SELECT ISNULL(MAX(pago_id), 0) FROM [dbo].[Pagos]", conn);
-                var res = cmd.ExecuteScalar();
-                if (res != null && res != DBNull.Value)
-                {
-                    maxNumero = Math.Max(maxNumero, Convert.ToInt32(res));
-                }
-            }
-            catch { }
+        #region Autoincremento Seguro y Persistente de Facturas y Recetas (No se reinicia al borrar pacientes)
+        private static readonly object _correlativoLock = new object();
+        private static int _ultimoCorrelativo = -1;
 
-            try
+        private void InicializarCorrelativoSecuencia()
+        {
+            lock (_correlativoLock)
             {
-                if (Directory.Exists(_rutaCarpetaFacturas))
+                if (_ultimoCorrelativo >= 0) return;
+
+                int maxCorrelativo = 0;
+                string rutaArchivoJson = Path.Combine(ObtenerRutaRaizSolucion(), "correlativo_secuencia.json");
+
+                // 1. Leer desde archivo JSON persistente si existe
+                try
                 {
-                    var files = Directory.GetFiles(_rutaCarpetaFacturas, "Factura_*.pdf");
-                    foreach (var file in files)
+                    if (File.Exists(rutaArchivoJson))
                     {
-                        string filename = Path.GetFileName(file);
-                        var match = System.Text.RegularExpressions.Regex.Match(filename, @"FAC-(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                        if (match.Success && int.TryParse(match.Groups[1].Value, out int num))
+                        string json = File.ReadAllText(rutaArchivoJson);
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("UltimoCorrelativo", out var prop) && prop.TryGetInt32(out int val))
                         {
-                            maxNumero = Math.Max(maxNumero, num);
-                        }
-                        else
-                        {
-                            maxNumero = Math.Max(maxNumero, files.Length);
+                            maxCorrelativo = Math.Max(maxCorrelativo, val);
                         }
                     }
                 }
+                catch { }
+
+                // 2. Escanear carpeta de Facturas existentes
+                try
+                {
+                    if (Directory.Exists(_rutaCarpetaFacturas))
+                    {
+                        var files = Directory.GetFiles(_rutaCarpetaFacturas, "*.pdf");
+                        foreach (var file in files)
+                        {
+                            string filename = Path.GetFileName(file);
+                            var match = System.Text.RegularExpressions.Regex.Match(filename, @"FAC-(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            if (match.Success && int.TryParse(match.Groups[1].Value, out int num))
+                            {
+                                maxCorrelativo = Math.Max(maxCorrelativo, num);
+                            }
+                        }
+                    }
+                }
+                catch { }
+
+                // 3. Escanear carpeta de Recetas existentes
+                try
+                {
+                    if (Directory.Exists(_rutaCarpetaRecetas))
+                    {
+                        var files = Directory.GetFiles(_rutaCarpetaRecetas, "*.pdf");
+                        foreach (var file in files)
+                        {
+                            string filename = Path.GetFileName(file);
+                            var match = System.Text.RegularExpressions.Regex.Match(filename, @"REC-(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            if (match.Success && int.TryParse(match.Groups[1].Value, out int num))
+                            {
+                                maxCorrelativo = Math.Max(maxCorrelativo, num);
+                            }
+                        }
+                    }
+                }
+                catch { }
+
+                // 4. Escanear base de datos (Pagos y Recetas)
+                try
+                {
+                    using var conn = ConexionDAL.ObtenerConexion();
+                    conn.Open();
+                    using var cmd1 = new SqlCommand("SELECT ISNULL(MAX(pago_id), 0) FROM [dbo].[Pagos]", conn);
+                    var res1 = cmd1.ExecuteScalar();
+                    if (res1 != null && res1 != DBNull.Value)
+                    {
+                        maxCorrelativo = Math.Max(maxCorrelativo, Convert.ToInt32(res1));
+                    }
+
+                    using var cmd2 = new SqlCommand("SELECT ISNULL(MAX(receta_id), 0) FROM [dbo].[Recetas]", conn);
+                    var res2 = cmd2.ExecuteScalar();
+                    if (res2 != null && res2 != DBNull.Value)
+                    {
+                        maxCorrelativo = Math.Max(maxCorrelativo, Convert.ToInt32(res2));
+                    }
+                }
+                catch { }
+
+                _ultimoCorrelativo = maxCorrelativo;
+                GuardarCorrelativoSecuencia(_ultimoCorrelativo);
+            }
+        }
+
+        private static void GuardarCorrelativoSecuencia(int valor)
+        {
+            try
+            {
+                string rutaArchivoJson = Path.Combine(ObtenerRutaRaizSolucion(), "correlativo_secuencia.json");
+                var obj = new { UltimoCorrelativo = valor, Actualizado = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") };
+                File.WriteAllText(rutaArchivoJson, JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true }));
             }
             catch { }
+        }
 
-            return $"FAC-{(maxNumero + 1):D5}";
+        private int ObtenerYSiguienteCorrelativo()
+        {
+            lock (_correlativoLock)
+            {
+                if (_ultimoCorrelativo < 0) InicializarCorrelativoSecuencia();
+                _ultimoCorrelativo++;
+                GuardarCorrelativoSecuencia(_ultimoCorrelativo);
+                return _ultimoCorrelativo;
+            }
+        }
+
+        private int ObtenerCorrelativoActual()
+        {
+            lock (_correlativoLock)
+            {
+                if (_ultimoCorrelativo < 0) InicializarCorrelativoSecuencia();
+                return _ultimoCorrelativo;
+            }
+        }
+
+        private string ObtenerSiguienteNumeroFactura()
+        {
+            int corr = ObtenerCorrelativoActual() + 1;
+            return $"FAC-{corr:D5}";
         }
 
         private string ObtenerSiguienteNumeroReceta()
         {
-            int maxNumero = 0;
-            try
-            {
-                using var conn = ConexionDAL.ObtenerConexion();
-                conn.Open();
-                using var cmd = new SqlCommand("SELECT ISNULL(MAX(receta_id), 0) FROM [dbo].[Recetas]", conn);
-                var res = cmd.ExecuteScalar();
-                if (res != null && res != DBNull.Value)
-                {
-                    maxNumero = Math.Max(maxNumero, Convert.ToInt32(res));
-                }
-            }
-            catch { }
-
-            try
-            {
-                if (Directory.Exists(_rutaCarpetaRecetas))
-                {
-                    var files = Directory.GetFiles(_rutaCarpetaRecetas, "Receta_*.pdf");
-                    foreach (var file in files)
-                    {
-                        string filename = Path.GetFileName(file);
-                        var match = System.Text.RegularExpressions.Regex.Match(filename, @"REC-(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                        if (match.Success && int.TryParse(match.Groups[1].Value, out int num))
-                        {
-                            maxNumero = Math.Max(maxNumero, num);
-                        }
-                        else
-                        {
-                            maxNumero = Math.Max(maxNumero, files.Length);
-                        }
-                    }
-                }
-            }
-            catch { }
-
-            return $"REC-{(maxNumero + 1):D5}";
+            int corr = ObtenerCorrelativoActual() + 1;
+            return $"REC-{corr:D5}";
         }
         #endregion
 
