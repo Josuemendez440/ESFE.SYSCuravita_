@@ -12,7 +12,7 @@ namespace ESFE.SYSCURAVITA.LN
             return ConsultaDAL.GuardarDiagnostico(pacienteId, codigoExpediente, diagnosticoTexto, montoConsulta: 0.00m);
         }
 
-        // Sobrecarga completa incluyendo montoConsulta y lista estructurada de medicamentos
+        // Sobrecarga completa incluyendo montoConsulta, medicamentos y motivoConsulta
         public static bool GuardarDiagnostico(
             int pacienteId,
             string? codigoExpediente,
@@ -22,7 +22,8 @@ namespace ESFE.SYSCURAVITA.LN
             string? temperatura,
             string? peso,
             decimal montoConsulta,
-            List<(string Medicamento, string Dosis)>? medicamentos)
+            List<(string Medicamento, string Dosis)>? medicamentos,
+            string? motivoConsulta = "Consulta Médica General")
         {
             return ConsultaDAL.GuardarDiagnostico(
                 pacienteId,
@@ -33,7 +34,8 @@ namespace ESFE.SYSCURAVITA.LN
                 temperatura,
                 peso,
                 montoConsulta,
-                medicamentos
+                medicamentos,
+                motivoConsulta: motivoConsulta
             );
         }
 

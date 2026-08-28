@@ -205,7 +205,8 @@ function renderizarListaEspera(pacientes) {
         }
 
         const nombreMostrar = p.nombreCompleto || `${p.nombres || ''} ${p.apellidos || ''}`.trim() || 'Sin Nombre';
-        const especialidadTag = (p.especialidad_nombre || p.especialidadNombre) ? `<span class="badge-urg">${p.especialidad_nombre || p.especialidadNombre}</span>` : '';
+        const especialidadNombre = p.especialidad_nombre || p.especialidadNombre || p.motivoConsulta || p.motivo_consulta;
+        const especialidadTag = especialidadNombre ? `<span class="badge-urg">${especialidadNombre}</span>` : '';
 
         li.onclick = () => solicitarConfirmacionAceptar(p, li);
         li.innerHTML = `
@@ -476,7 +477,6 @@ function finalizarConsulta() {
     const nombreCompleto = pacientePendiente.nombreCompleto || `${pacientePendiente.nombres || ''} ${pacientePendiente.apellidos || ''}`.trim();
     const codigoExp = pacientePendiente.codigo_expediente || pacientePendiente.codigoExpediente || pacientePendiente.codigo || 'N/A';
 
-    // Capturar el monto real proveniente del objeto del paciente/cita o usar 25.00 de respaldo
     const montoCalculado = parseFloat(
         pacientePendiente.monto_consulta ||
         pacientePendiente.montoConsulta ||
@@ -485,11 +485,18 @@ function finalizarConsulta() {
         25.00
     );
 
+    // CAPTURA DE LA ESPECIALIDAD SELECCIONADA
+    const motivoConsultaVar = pacientePendiente.especialidad_nombre ||
+        pacientePendiente.especialidadNombre ||
+        pacientePendiente.motivoConsulta ||
+        pacientePendiente.motivo_consulta ||
+        'Consulta Médica General';
+
     const nuevoCobro = {
         paciente_id: String(pacienteSeleccionadoId),
         codigo_expediente: codigoExp,
         nombreCompleto: nombreCompleto,
-        especialidad_nombre: pacientePendiente.especialidad_nombre || pacientePendiente.especialidadNombre || 'Consulta Médica',
+        especialidad_nombre: motivoConsultaVar,
         monto_consulta: montoCalculado
     };
 
@@ -507,13 +514,14 @@ function finalizarConsulta() {
             PacienteId: parseInt(pacienteSeleccionadoId, 10) || 0,
             CodigoExpediente: String(codigoExp),
             Diagnostico: String(diag),
+            MotivoConsulta: String(motivoConsultaVar), // 👈 ENVIADO A C#
             PresionSistolica: sistolica,
             PresionDiastolica: diastolica,
             FC: fc,
             Temp: temp,
             Peso: peso,
-            MontoConsulta: montoCalculado, // <--- CAMBIO: Se agrega el monto al JSON enviado a C#
-            Monto: montoCalculado,          // <--- CAMBIO: Alias por compatibilidad
+            MontoConsulta: montoCalculado,
+            Monto: montoCalculado,
             Medicamentos: listaReceta.map(m => ({
                 Medicamento: String(m.medicamento),
                 IndicacionesDosis: String(m.indicaciones || 'Sin indicaciones')

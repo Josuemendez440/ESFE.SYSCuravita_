@@ -17,7 +17,7 @@ if (window.chrome && window.chrome.webview) {
             renderizarListaPagos(datos.Pagos || []);
         } else if (datos.Accion === "PAGO_REGISTRADO") {
             if (datos.Exito) {
-                alert(datos.Mensaje || "Factura registrada e impresa correctamente.");
+                mostrarToast(datos.Mensaje || "Factura registrada e impresa correctamente.");
             }
         } else if (datos.Accion === "REGISTRO_ELIMINADO") {
             const idBorrado = datos.PacienteId;
@@ -35,6 +35,19 @@ if (window.chrome && window.chrome.webview) {
             renderizarListaPagos(listaPagos);
         }
     });
+}
+
+function mostrarToast(mensaje) {
+    const toast = document.getElementById('toastNotification');
+    const toastMsg = document.getElementById('toastMessage');
+    if (!toast || !toastMsg) return;
+
+    toastMsg.innerText = mensaje;
+    toast.classList.add('show');
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3500);
 }
 
 function inicializarEventosNavegacion() {
@@ -192,7 +205,7 @@ function calcularCambio() {
 
 function procesarPago() {
     if (!pagoSeleccionado) {
-        alert("Selecciona un paciente para generar la factura.");
+        mostrarToast("Selecciona un paciente para generar la factura.");
         return;
     }
 
@@ -200,7 +213,7 @@ function procesarPago() {
     const recibido = parseFloat(document.getElementById('inputMontoRecibido').value) || 0;
 
     if (metodoPagoActual === 'Efectivo' && recibido < total) {
-        alert("El monto recibido no puede ser menor al total de la consulta.");
+        mostrarToast("El monto recibido no puede ser menor al total de la consulta.");
         return;
     }
 
@@ -220,6 +233,8 @@ function procesarPago() {
             Cambio: metodoPagoActual === 'Tarjeta' ? 0 : (recibido - total)
         }));
     }
+
+    mostrarToast("Factura registrada e impresa correctamente.");
 
     incrementarNumeroFactura();
 

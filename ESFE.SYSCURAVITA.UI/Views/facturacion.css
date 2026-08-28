@@ -568,6 +568,33 @@ body {
         border-color: var(--primary);
     }
 
+/* Toast Notificación */
+.toast-notification {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: #10b981;
+    color: #ffffff;
+    padding: 14px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 10001;
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+
+    .toast-notification.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
 @media (max-width: 950px) {
     .main-workspace {
         margin-left: 0;

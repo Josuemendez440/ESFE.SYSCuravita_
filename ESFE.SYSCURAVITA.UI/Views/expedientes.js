@@ -313,6 +313,7 @@ function confirmarEnviarAConsulta() {
             accion: "crear_consulta",
             pacienteId: datosConsulta.paciente_id,
             especialidadId: datosConsulta.especialidad_id,
+            motivoConsulta: especialidadNombre,
             montoConsulta: datosConsulta.monto_consulta,
             recepcionistaId: parseInt(localStorage.getItem('usuarioId') || '1')
         }));

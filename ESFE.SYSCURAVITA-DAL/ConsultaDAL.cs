@@ -10,12 +10,17 @@ namespace ESFE.SYSCURAVITA_DAL
             int pacienteId,
             string? codigoExpediente,
             string? diagnosticoTexto,
-            string? pa = "N/A",
-            string? fc = "N/A",
-            string? temp = "N/A",
-            string? peso = "N/A",
+            string? pa = "120/80",
+            string? fc = "80",
+            string? temp = "36.5",
+            string? peso = "70.0",
             decimal montoConsulta = 0.00m,
-            List<(string Medicamento, string Dosis)>? medicamentos = null)
+            List<(string Medicamento, string Dosis)>? medicamentos = null,
+            int medicoId = 1,              // ID de médico por defecto
+            int recepcionistaId = 1,       // ID de recepcionista por defecto
+            int enfermeroId = 1,           // ID de enfermero por defecto
+            string? motivoConsulta = "Consulta Médica General",
+            int estaturaCm = 170)          // Estatura por defecto
         {
             using var conexion = ConexionDAL.ObtenerConexion();
             if (conexion == null) return false;
@@ -42,17 +47,26 @@ namespace ESFE.SYSCURAVITA_DAL
 
                 if (idRealPaciente == 0) return false;
 
-                // B. Insertar en tabla Consultas con el monto recibídode la interfaz
+                // B. Insertar en Consultas (llena medico_id y usuario_modificacion_id)
                 string sqlInsertConsulta = @"
-                    INSERT INTO Consultas (paciente_id, recepcionista_id, fecha_consulta, tipo_atencion_id, estado_consulta_id, monto_consulta, es_emergencia)
-                    VALUES (@PacienteId, 1, GETDATE(), 1, 1, @MontoConsulta, 0);
+                    INSERT INTO Consultas (
+                        paciente_id, medico_id, recepcionista_id, fecha_consulta, 
+                        tipo_atencion_id, estado_consulta_id, es_emergencia, 
+                        usuario_modificacion_id, fecha_modificacion
+                    )
+                    VALUES (
+                        @PacienteId, @MedicoId, @RecepcionistaId, GETDATE(), 
+                        1, 1, 0, 
+                        @MedicoId, GETDATE()
+                    );
                     SELECT SCOPE_IDENTITY();";
 
                 int nuevaConsultaId = 0;
                 using (var cmdIns = new SqlCommand(sqlInsertConsulta, conexion, transaccion))
                 {
                     cmdIns.Parameters.AddWithValue("@PacienteId", idRealPaciente);
-                    cmdIns.Parameters.AddWithValue("@MontoConsulta", montoConsulta);
+                    cmdIns.Parameters.AddWithValue("@MedicoId", medicoId);
+                    cmdIns.Parameters.AddWithValue("@RecepcionistaId", recepcionistaId);
                     object? newId = cmdIns.ExecuteScalar();
                     if (newId != null && newId != DBNull.Value)
                     {
@@ -62,7 +76,7 @@ namespace ESFE.SYSCURAVITA_DAL
 
                 if (nuevaConsultaId == 0) return false;
 
-                // C. Parsear Signos Vitales para la tabla Triaje
+                // C. Parsear Signos Vitales para Triaje
                 int sistolica = 120, diastolica = 80, fcNum = 80;
                 decimal tempNum = 36.5m, pesoNum = 70.0m;
 
@@ -77,19 +91,30 @@ namespace ESFE.SYSCURAVITA_DAL
                 decimal.TryParse(temp, out tempNum);
                 decimal.TryParse(peso, out pesoNum);
 
-                // Insertar en tabla Triaje
+                // Insertar en Triaje (llena estatura_cm y motivo_consulta)
                 string sqlInsertTriaje = @"
-                    INSERT INTO Triaje (consulta_id, enfermero_id, presion_sistolica, presion_diastolica, frecuencia_cardiaca, temperatura, peso_kg, sincronizado_desde_movil, fecha_registro)
-                    VALUES (@ConsultaId, 1, @Sistolica, @Diastolica, @FC, @Temp, @Peso, 0, GETDATE());";
+                    INSERT INTO Triaje (
+                        consulta_id, enfermero_id, presion_sistolica, presion_diastolica, 
+                        frecuencia_cardiaca, temperatura, peso_kg, estatura_cm, 
+                        motivo_consulta, sincronizado_desde_movil, fecha_registro
+                    )
+                    VALUES (
+                        @ConsultaId, @EnfermeroId, @Sistolica, @Diastolica, 
+                        @FC, @Temp, @Peso, @Estatura, 
+                        @Motivo, 0, GETDATE()
+                    );";
 
                 using (var cmdT = new SqlCommand(sqlInsertTriaje, conexion, transaccion))
                 {
                     cmdT.Parameters.AddWithValue("@ConsultaId", nuevaConsultaId);
+                    cmdT.Parameters.AddWithValue("@EnfermeroId", enfermeroId);
                     cmdT.Parameters.AddWithValue("@Sistolica", sistolica == 0 ? 120 : sistolica);
                     cmdT.Parameters.AddWithValue("@Diastolica", diastolica == 0 ? 80 : diastolica);
                     cmdT.Parameters.AddWithValue("@FC", fcNum == 0 ? 80 : fcNum);
                     cmdT.Parameters.AddWithValue("@Temp", tempNum == 0 ? 36.5m : tempNum);
                     cmdT.Parameters.AddWithValue("@Peso", pesoNum == 0 ? 70.0m : pesoNum);
+                    cmdT.Parameters.AddWithValue("@Estatura", estaturaCm);
+                    cmdT.Parameters.AddWithValue("@Motivo", string.IsNullOrWhiteSpace(motivoConsulta) ? "Evaluación general del paciente" : motivoConsulta);
                     cmdT.ExecuteNonQuery();
                 }
 
@@ -101,43 +126,52 @@ namespace ESFE.SYSCURAVITA_DAL
                 using (var cmdD = new SqlCommand(sqlInsertDiagnostico, conexion, transaccion))
                 {
                     cmdD.Parameters.AddWithValue("@ConsultaId", nuevaConsultaId);
-                    cmdD.Parameters.AddWithValue("@Diagnostico", diagnosticoTexto ?? string.Empty);
+                    cmdD.Parameters.AddWithValue("@Diagnostico", string.IsNullOrWhiteSpace(diagnosticoTexto) ? "Evaluación clínica sin hallazgos patológicos" : diagnosticoTexto);
                     cmdD.ExecuteNonQuery();
                 }
 
-                // E. Insertar Receta y Detalle (si existen medicamentos)
-                if (medicamentos != null && medicamentos.Count > 0)
+                // E. Insertar Receta y DetalleRecetas (Garantiza registro aun si no ingresan medicamentos)
+                string sqlInsertReceta = @"
+                    INSERT INTO Recetas (consulta_id, fecha_registro)
+                    VALUES (@ConsultaId, GETDATE());
+                    SELECT SCOPE_IDENTITY();";
+
+                int recetaId = 0;
+                using (var cmdR = new SqlCommand(sqlInsertReceta, conexion, transaccion))
                 {
-                    string sqlInsertReceta = @"
-                        INSERT INTO Recetas (consulta_id, fecha_registro)
-                        VALUES (@ConsultaId, GETDATE());
-                        SELECT SCOPE_IDENTITY();";
-
-                    int recetaId = 0;
-                    using (var cmdR = new SqlCommand(sqlInsertReceta, conexion, transaccion))
+                    cmdR.Parameters.AddWithValue("@ConsultaId", nuevaConsultaId);
+                    object? rId = cmdR.ExecuteScalar();
+                    if (rId != null && rId != DBNull.Value)
                     {
-                        cmdR.Parameters.AddWithValue("@ConsultaId", nuevaConsultaId);
-                        object? rId = cmdR.ExecuteScalar();
-                        if (rId != null && rId != DBNull.Value)
-                        {
-                            recetaId = Convert.ToInt32(rId);
-                        }
+                        recetaId = Convert.ToInt32(rId);
                     }
+                }
 
-                    if (recetaId > 0)
+                if (recetaId > 0)
+                {
+                    string sqlInsertDetalle = @"
+                        INSERT INTO DetalleRecetas (receta_id, medicamento, indicaciones_dosis)
+                        VALUES (@RecetaId, @Medicamento, @Indicaciones);";
+
+                    if (medicamentos != null && medicamentos.Count > 0)
                     {
-                        string sqlInsertDetalle = @"
-                            INSERT INTO DetalleRecetas (receta_id, medicamento, indicaciones_dosis)
-                            VALUES (@RecetaId, @Medicamento, @Indicaciones);";
-
                         foreach (var item in medicamentos)
                         {
                             using var cmdDet = new SqlCommand(sqlInsertDetalle, conexion, transaccion);
                             cmdDet.Parameters.AddWithValue("@RecetaId", recetaId);
-                            cmdDet.Parameters.AddWithValue("@Medicamento", item.Medicamento);
-                            cmdDet.Parameters.AddWithValue("@Indicaciones", string.IsNullOrWhiteSpace(item.Dosis) ? DBNull.Value : item.Dosis);
+                            cmdDet.Parameters.AddWithValue("@Medicamento", string.IsNullOrWhiteSpace(item.Medicamento) ? "Sin especificar" : item.Medicamento);
+                            cmdDet.Parameters.AddWithValue("@Indicaciones", string.IsNullOrWhiteSpace(item.Dosis) ? "Según criterio médico" : item.Dosis);
                             cmdDet.ExecuteNonQuery();
                         }
+                    }
+                    else
+                    {
+                        // Si no agregaron fármacos en la UI, inserta un registro por defecto
+                        using var cmdDet = new SqlCommand(sqlInsertDetalle, conexion, transaccion);
+                        cmdDet.Parameters.AddWithValue("@RecetaId", recetaId);
+                        cmdDet.Parameters.AddWithValue("@Medicamento", "Sin medicamentos recetados");
+                        cmdDet.Parameters.AddWithValue("@Indicaciones", "No requiere tratamiento farmacológico");
+                        cmdDet.ExecuteNonQuery();
                     }
                 }
 

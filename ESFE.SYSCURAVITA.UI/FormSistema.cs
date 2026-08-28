@@ -17,7 +17,7 @@ namespace ESFE.SYSCURAVITA.UI
         private readonly AccesosEN? _usuario;
         private bool _esCierreDeSesion;
 
-        private static readonly List<PacienteEN> _pacientesEnEspera = new();
+        private static readonly List<PacienteEN> _pacientesEnEspera = [];
 
         public FormSistema()
         {
@@ -165,6 +165,7 @@ namespace ESFE.SYSCURAVITA.UI
                     {
                         DateTime? fechaNacimiento = null;
                         string fNacStr = ObtenerString(root, "fecha_nacimiento", "fechaNacimiento");
+
                         if (!string.IsNullOrWhiteSpace(fNacStr) && DateTime.TryParse(fNacStr, out DateTime fechaParseada))
                         {
                             fechaNacimiento = fechaParseada;
@@ -212,12 +213,21 @@ namespace ESFE.SYSCURAVITA.UI
                     {
                         int pacienteId = ObtenerInt(root, "pacienteId", "PacienteId");
 
+                        string motivoConsulta = ObtenerString(root, "motivoConsulta", "motivo_consulta", "especialidadNombre", "especialidad");
+                        if (string.IsNullOrWhiteSpace(motivoConsulta))
+                        {
+                            motivoConsulta = "Consulta General";
+                        }
+
                         var todosPacientes = PacienteLN.ObtenerTodos();
                         var paciente = todosPacientes.FirstOrDefault(p => p.paciente_id == pacienteId);
 
-                        if (paciente != null && !_pacientesEnEspera.Any(p => p.paciente_id == paciente.paciente_id))
+                        if (paciente != null)
                         {
-                            _pacientesEnEspera.Add(paciente);
+                            if (!_pacientesEnEspera.Any(p => p.paciente_id == paciente.paciente_id))
+                            {
+                                _pacientesEnEspera.Add(paciente);
+                            }
                         }
                     }
                     else if (accion.Equals("REMOVER_DE_CONSULTA", StringComparison.OrdinalIgnoreCase))
@@ -238,6 +248,9 @@ namespace ESFE.SYSCURAVITA.UI
                         string diagnostico = ObtenerString(root, "Diagnostico", "diagnostico");
                         decimal montoConsulta = ObtenerDecimal(root, "MontoConsulta", "montoConsulta", "monto_consulta", "Monto", "monto");
 
+                        // CAPTURA DEL MOTIVO DE CONSULTA
+                        string motivoConsulta = ObtenerString(root, "MotivoConsulta", "motivoConsulta", "motivo_consulta", "Especialidad", "especialidad");
+
                         // Signos Vitales
                         string paSistolica = ObtenerString(root, "PresionSistolica", "PA");
                         string paDiastolica = ObtenerString(root, "PresionDiastolica");
@@ -254,7 +267,7 @@ namespace ESFE.SYSCURAVITA.UI
                         string peso = ObtenerString(root, "Peso", "peso");
                         if (string.IsNullOrEmpty(peso)) peso = "N/A";
 
-                        // Receta (Lista de tuplas para separar Medicamento e Indicaciones/Dosis)
+                        // Receta
                         var medicamentos = new List<(string Medicamento, string Dosis)>();
 
                         if (root.TryGetProperty("Medicamentos", out var medsProp) && medsProp.ValueKind == JsonValueKind.Array)
@@ -271,7 +284,19 @@ namespace ESFE.SYSCURAVITA.UI
                             }
                         }
 
-                        bool guardado = ConsultaLN.GuardarDiagnostico(pacienteId, codigoExpediente, diagnostico, pa, fc, temp, peso, montoConsulta, medicamentos);
+                        // PASO DEL PARÁMETRO 'motivoConsulta' A LA CAPA LN
+                        bool guardado = ConsultaLN.GuardarDiagnostico(
+                            pacienteId,
+                            codigoExpediente,
+                            diagnostico,
+                            pa,
+                            fc,
+                            temp,
+                            peso,
+                            montoConsulta,
+                            medicamentos,
+                            motivoConsulta
+                        );
 
                         var respuesta = new
                         {
@@ -345,8 +370,11 @@ namespace ESFE.SYSCURAVITA.UI
             {
                 if (root.TryGetProperty(prop, out var elem))
                 {
-                    if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt32(out int valInt)) return valInt;
-                    if (elem.ValueKind == JsonValueKind.String && int.TryParse(elem.GetString(), out int parsedInt)) return parsedInt;
+                    if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt32(out int valInt))
+                        return valInt;
+
+                    if (elem.ValueKind == JsonValueKind.String && int.TryParse(elem.GetString(), out int parsedInt))
+                        return parsedInt;
                 }
             }
             return 0;
@@ -358,8 +386,11 @@ namespace ESFE.SYSCURAVITA.UI
             {
                 if (root.TryGetProperty(prop, out var elem))
                 {
-                    if (elem.ValueKind == JsonValueKind.Number && elem.TryGetDecimal(out decimal valDec)) return valDec;
-                    if (elem.ValueKind == JsonValueKind.String && decimal.TryParse(elem.GetString(), out decimal parsedDec)) return parsedDec;
+                    if (elem.ValueKind == JsonValueKind.Number && elem.TryGetDecimal(out decimal valDec))
+                        return valDec;
+
+                    if (elem.ValueKind == JsonValueKind.String && decimal.TryParse(elem.GetString(), out decimal parsedDec))
+                        return parsedDec;
                 }
             }
             return 0m;
