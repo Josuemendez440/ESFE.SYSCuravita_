@@ -4,11 +4,8 @@ namespace ESFE.SYSCURAVITA_DAL
 {
     public static class ConexionDAL
     {
-        private static readonly string conexionStr = "Server=.\\SQLEXPRESS;Database=CURAVITA_DB;Trusted_Connection=True;TrustServerCertificate=True;";
+        private const string Cadena = "Data Source=sql5106.site4now.net;Initial Catalog=db_acdbf3_clinicadb;User Id=db_acdbf3_clinicadb_admin;Password=K9#mP2$xL8!v;Encrypt=True;TrustServerCertificate=True;";
 
-        public static SqlConnection ObtenerConexion()
-        {
-            return new SqlConnection(conexionStr);
-        }
+        public static SqlConnection ObtenerConexion() => new(Cadena);
     }
 }
