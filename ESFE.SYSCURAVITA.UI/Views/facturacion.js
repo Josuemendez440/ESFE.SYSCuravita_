@@ -2,6 +2,7 @@ let pagoSeleccionado = null;
 let listaPagosCache = [];
 let metodoPagoActual = 'Efectivo';
 let ultimoNumeroFacturaServidor = '';
+let ultimaFacturaProcesada = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const rolGuardado = localStorage.getItem('usuarioRol');
@@ -29,9 +30,30 @@ if (window.chrome && window.chrome.webview) {
             }
         } else if (datos.Accion === "PAGO_REGISTRADO") {
             if (datos.Exito) {
-                mostrarToast(datos.Mensaje || "Factura registrada e impresa correctamente.");
+                mostrarToast(datos.Mensaje || "Factura finalizada correctamente.");
+                if (datos.RutaPdf && ultimaFacturaProcesada) {
+                    ultimaFacturaProcesada.rutaPdf = datos.RutaPdf;
+                }
+                mostrarModalFacturaFinalizada(ultimaFacturaProcesada);
                 window.chrome.webview.postMessage(JSON.stringify({ Accion: "OBTENER_SIGUIENTE_NUMERO_FACTURA" }));
+            } else {
+                mostrarToast(datos.Mensaje || "Error al procesar la factura.", "error");
             }
+        } else if (datos.Accion === "CORREO_ENVIADO") {
+            const feedback = document.getElementById('emailFeedbackMsg');
+            const btnEnviar = document.getElementById('btnEnviarCorreo');
+            const txtBtn = document.getElementById('btnEnviarCorreoTexto');
+
+            if (btnEnviar) btnEnviar.disabled = false;
+            if (txtBtn) txtBtn.innerText = 'Enviar';
+
+            if (feedback) {
+                feedback.style.display = 'block';
+                feedback.className = `email-feedback ${datos.Exito ? 'success' : 'error'}`;
+                feedback.innerText = datos.Mensaje || (datos.Exito ? '¡Correo enviado con éxito!' : 'Error al enviar correo.');
+            }
+
+            mostrarToast(datos.Mensaje || (datos.Exito ? "Factura enviada por correo con éxito." : "Error al enviar correo."));
         } else if (datos.Accion === "REGISTRO_ELIMINADO") {
             const idBorrado = datos.PacienteId;
 
@@ -244,6 +266,22 @@ function procesarPago() {
         
     const pId = pagoSeleccionado.paciente_id || pagoSeleccionado.id || pagoSeleccionado.consulta_id;
     const nombre = pagoSeleccionado.nombreCompleto || `${pagoSeleccionado.nombres || ''} ${pagoSeleccionado.apellidos || ''}`.trim();
+    const codigoExp = pagoSeleccionado.codigo_expediente || pagoSeleccionado.codigoExpediente || '';
+    const especialidad = pagoSeleccionado.especialidad_nombre || pagoSeleccionado.especialidad || 'Consulta General';
+    const cambioCalculado = metodoPagoActual === 'Tarjeta' ? 0 : Math.max(0, recibido - total);
+
+    ultimaFacturaProcesada = {
+        numeroFactura: numFactura,
+        pacienteId: pId,
+        paciente: nombre,
+        codigoExpediente: codigoExp,
+        especialidad: especialidad,
+        metodoPago: metodoPagoActual,
+        montoTotal: total,
+        montoRecibido: recibido,
+        cambio: cambioCalculado,
+        correo: pagoSeleccionado.correo || ''
+    };
 
     if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(JSON.stringify({
@@ -251,16 +289,17 @@ function procesarPago() {
             NumeroFactura: numFactura,
             PacienteId: pId,
             Paciente: nombre,
-            CodigoExpediente: pagoSeleccionado.codigo_expediente || pagoSeleccionado.codigoExpediente || '',
-            Especialidad: pagoSeleccionado.especialidad_nombre || pagoSeleccionado.especialidad || 'Consulta General',
+            CodigoExpediente: codigoExp,
+            Especialidad: especialidad,
             MetodoPago: metodoPagoActual,
             MontoTotal: total,
             MontoRecibido: recibido,
-            Cambio: metodoPagoActual === 'Tarjeta' ? 0 : (recibido - total)
+            Cambio: cambioCalculado
         }));
+    } else {
+        mostrarToast("Factura finalizada exitosamente.");
+        mostrarModalFacturaFinalizada(ultimaFacturaProcesada);
     }
-
-    mostrarToast("Factura registrada e impresa correctamente.");
 
     let listaLocal = JSON.parse(localStorage.getItem('listaPagos') || '[]');
     listaLocal = listaLocal.filter(p => (p.paciente_id || p.id || p.consulta_id) !== pId);
@@ -271,6 +310,121 @@ function procesarPago() {
     document.getElementById('emptyWorkspacePago').style.display = 'block';
 
     renderizarListaPagos(listaLocal);
+}
+
+function mostrarModalFacturaFinalizada(factura) {
+    if (!factura) return;
+
+    const modal = document.getElementById('modalFacturaFinalizada');
+    if (!modal) return;
+
+    const lblNum = document.getElementById('modalFacNumero');
+    const lblPac = document.getElementById('modalFacPaciente');
+    const lblMet = document.getElementById('modalFacMetodo');
+    const lblTot = document.getElementById('modalFacTotal');
+    const txtCorreo = document.getElementById('txtCorreoDestinatario');
+
+    if (lblNum) lblNum.innerText = factura.numeroFactura || 'FAC-00000';
+    if (lblPac) lblPac.innerText = factura.paciente || 'Paciente';
+    if (lblMet) lblMet.innerText = factura.metodoPago || 'Efectivo';
+    if (lblTot) lblTot.innerText = `$${parseFloat(factura.montoTotal || 0).toFixed(2)}`;
+    if (txtCorreo) txtCorreo.value = factura.correo || '';
+
+    const feedback = document.getElementById('emailFeedbackMsg');
+    if (feedback) {
+        feedback.style.display = 'none';
+        feedback.className = 'email-feedback';
+        feedback.innerText = '';
+    }
+
+    const btnEnviar = document.getElementById('btnEnviarCorreo');
+    const txtBtn = document.getElementById('btnEnviarCorreoTexto');
+    if (btnEnviar) btnEnviar.disabled = false;
+    if (txtBtn) txtBtn.innerText = 'Enviar';
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalFacturaFinalizada() {
+    const modal = document.getElementById('modalFacturaFinalizada');
+    if (modal) modal.style.display = 'none';
+    ultimaFacturaProcesada = null;
+}
+
+function enviarFacturaPorCorreo() {
+    if (!ultimaFacturaProcesada) {
+        mostrarToast("No hay información de la factura para enviar.");
+        return;
+    }
+
+    const txtCorreo = document.getElementById('txtCorreoDestinatario');
+    const correoDestino = txtCorreo ? txtCorreo.value.trim() : '';
+
+    if (!correoDestino || !validarFormatoCorreo(correoDestino)) {
+        const feedback = document.getElementById('emailFeedbackMsg');
+        if (feedback) {
+            feedback.style.display = 'block';
+            feedback.className = 'email-feedback error';
+            feedback.innerText = 'Por favor, ingrese una dirección de correo válida.';
+        }
+        mostrarToast("Ingrese un correo electrónico válido.");
+        return;
+    }
+
+    const btnEnviar = document.getElementById('btnEnviarCorreo');
+    const txtBtn = document.getElementById('btnEnviarCorreoTexto');
+    const feedback = document.getElementById('emailFeedbackMsg');
+
+    if (btnEnviar) btnEnviar.disabled = true;
+    if (txtBtn) txtBtn.innerText = 'Enviando...';
+    if (feedback) {
+        feedback.style.display = 'block';
+        feedback.className = 'email-feedback loading';
+        feedback.innerText = `Enviando comprobante a ${correoDestino}...`;
+    }
+
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({
+            Accion: "ENVIAR_FACTURA_CORREO",
+            NumeroFactura: ultimaFacturaProcesada.numeroFactura,
+            Correo: correoDestino,
+            Paciente: ultimaFacturaProcesada.paciente,
+            MontoTotal: ultimaFacturaProcesada.montoTotal,
+            RutaPdf: ultimaFacturaProcesada.rutaPdf || ''
+        }));
+    } else {
+        setTimeout(() => {
+            if (btnEnviar) btnEnviar.disabled = false;
+            if (txtBtn) txtBtn.innerText = 'Enviar';
+            if (feedback) {
+                feedback.className = 'email-feedback success';
+                feedback.innerText = `Factura enviada a ${correoDestino} (simulación local).`;
+            }
+            mostrarToast("Factura enviada con éxito.");
+        }, 1200);
+    }
+}
+
+function abrirPdfFactura() {
+    if (!ultimaFacturaProcesada) {
+        mostrarToast("No hay factura seleccionada para ver.");
+        return;
+    }
+
+    if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify({
+            Accion: "ABRIR_PDF_FACTURA",
+            NumeroFactura: ultimaFacturaProcesada.numeroFactura,
+            RutaPdf: ultimaFacturaProcesada.rutaPdf || ''
+        }));
+    } else {
+        mostrarToast("Abriendo comprobante de factura...");
+    }
+}
+
+function validarFormatoCorreo(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
 }
 
 function openLogoutModal() {

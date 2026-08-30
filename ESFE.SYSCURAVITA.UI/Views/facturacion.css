@@ -1,4 +1,4 @@
-﻿html, body {
+html, body {
     scrollbar-width: none;
     -ms-overflow-style: none;
     overflow-y: auto;
@@ -609,3 +609,233 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================================================
+   ESTILOS PREMIUM - MODAL FACTURA FINALIZADA & ENVÍO POR CORREO
+   ========================================================================== */
+.modal-invoice-card {
+    max-width: 520px;
+    width: 90%;
+    padding: 30px;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 20px 40px rgba(11, 26, 32, 0.2);
+    border: 1px solid var(--border);
+    animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPopIn {
+    0% { transform: scale(0.92); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.modal-invoice-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.badge-icon-success {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: #e6f9f0;
+    color: #10b981;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+
+.badge-icon-success svg {
+    width: 28px;
+    height: 28px;
+}
+
+.invoice-summary-box {
+    background: #f8fafb;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-item.highlight {
+    grid-column: span 2;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+    margin-top: 4px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.4px;
+}
+
+.summary-val {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.summary-item.highlight .summary-val {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.email-send-section {
+    background: #ffffff;
+    border: 1.5px solid var(--primary-light);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 22px;
+}
+
+.email-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.email-section-title svg {
+    width: 16px;
+    height: 16px;
+}
+
+.email-input-group {
+    display: flex;
+    gap: 8px;
+    position: relative;
+}
+
+.email-input {
+    flex: 1;
+    font-size: 13.5px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: #fafcfc;
+    color: var(--text-main);
+    transition: all 0.2s ease;
+}
+
+.email-input:focus {
+    border-color: var(--primary);
+    background: #ffffff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(25, 83, 102, 0.12);
+}
+
+.btn-email-action {
+    background: var(--primary);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 0 18px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-email-action:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(25, 83, 102, 0.2);
+}
+
+.btn-email-action svg {
+    width: 14px;
+    height: 14px;
+}
+
+.btn-email-action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.email-feedback {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+.email-feedback.success {
+    background: #e6f9f0;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.email-feedback.error {
+    background: #fcebeb;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.email-feedback.loading {
+    background: #eef5f7;
+    color: var(--primary);
+    border: 1px solid var(--primary-light);
+}
+
+.modal-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.btn-action-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: #ffffff;
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-action-outline:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-light);
+}
+
+.btn-action-outline svg {
+    width: 16px;
+    height: 16px;
+}
+

@@ -45,7 +45,8 @@ namespace ESFE.SYSCURAVITA.UI
                 var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
                 while (dir != null)
                 {
-                    if (File.Exists(Path.Combine(dir.FullName, "ESFE.SYSCURAVITA.sln")) ||
+                    if (File.Exists(Path.Combine(dir.FullName, "ESFE.SYSCURAVITA.slnx")) ||
+                        File.Exists(Path.Combine(dir.FullName, "ESFE.SYSCURAVITA.sln")) ||
                         Directory.Exists(Path.Combine(dir.FullName, "ESFE.SYSCURAVITA.UI")))
                     {
                         return dir.FullName;
@@ -54,9 +55,6 @@ namespace ESFE.SYSCURAVITA.UI
                 }
             }
             catch { }
-
-            if (Directory.Exists(@"C:\Users\Josue\source\repos\ESFE.SYSCURAVITA"))
-                return @"C:\Users\Josue\source\repos\ESFE.SYSCURAVITA";
 
             return AppDomain.CurrentDomain.BaseDirectory;
         }
@@ -496,7 +494,11 @@ namespace ESFE.SYSCURAVITA.UI
                                 string nombreArchivoFactura = $"Factura_{facLimpio}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
                                 string rutaPdfFactura = Path.Combine(_rutaCarpetaFacturas, nombreArchivoFactura);
 
-                                await GenerarPdfDesdeHtmlAsync(htmlFactura, rutaPdfFactura);
+                                bool pdfGenerado = await GenerarPdfDesdeHtmlAsync(htmlFactura, rutaPdfFactura);
+                                if (pdfGenerado)
+                                {
+                                    respuesta.RutaPdf = rutaPdfFactura;
+                                }
                             }
                             catch (Exception exFactura)
                             {
@@ -506,6 +508,81 @@ namespace ESFE.SYSCURAVITA.UI
 
                         string jsonRespuesta = JsonSerializer.Serialize(respuesta);
                         webView21.CoreWebView2.PostWebMessageAsJson(jsonRespuesta);
+                    }
+                    else if (accion.Equals("ENVIAR_FACTURA_CORREO", StringComparison.OrdinalIgnoreCase) || accion.Equals("ENVIAR_CORREO_FACTURA", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string numFactura = ObtenerString(root, "NumeroFactura", "numeroFactura");
+                        string correo = ObtenerString(root, "Correo", "correo", "Destinatario", "destinatario");
+                        string paciente = ObtenerString(root, "Paciente", "paciente", "PacienteNombre", "pacienteNombre");
+                        decimal montoTotal = ObtenerDecimal(root, "MontoTotal", "montoTotal");
+                        string rutaPdf = ObtenerString(root, "RutaPdf", "rutaPdf");
+
+                        if (string.IsNullOrWhiteSpace(rutaPdf) || !File.Exists(rutaPdf))
+                        {
+                            if (Directory.Exists(_rutaCarpetaFacturas))
+                            {
+                                string facLimpio = string.Join("_", (string.IsNullOrWhiteSpace(numFactura) ? "FAC" : numFactura).Split(Path.GetInvalidFileNameChars()));
+                                var matchFiles = Directory.GetFiles(_rutaCarpetaFacturas, $"Factura_{facLimpio}*.pdf")
+                                                          .OrderByDescending(f => File.GetCreationTime(f))
+                                                          .FirstOrDefault();
+                                if (matchFiles != null)
+                                {
+                                    rutaPdf = matchFiles;
+                                }
+                            }
+                        }
+
+                        var correoDto = new CorreoDTO
+                        {
+                            Destinatario = correo,
+                            NumeroFactura = numFactura,
+                            PacienteNombre = paciente,
+                            MontoTotal = montoTotal,
+                            RutaArchivoPdf = rutaPdf
+                        };
+
+                        var respEnvio = FacturaLN.EnviarFacturaPorCorreo(correoDto);
+                        webView21.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(respEnvio));
+                    }
+                    else if (accion.Equals("ABRIR_PDF_FACTURA", StringComparison.OrdinalIgnoreCase) || accion.Equals("IMPRIMIR_PDF_FACTURA", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string numFactura = ObtenerString(root, "NumeroFactura", "numeroFactura");
+                        string rutaPdf = ObtenerString(root, "RutaPdf", "rutaPdf");
+
+                        if (string.IsNullOrWhiteSpace(rutaPdf) || !File.Exists(rutaPdf))
+                        {
+                            if (Directory.Exists(_rutaCarpetaFacturas))
+                            {
+                                string facLimpio = string.Join("_", (string.IsNullOrWhiteSpace(numFactura) ? "FAC" : numFactura).Split(Path.GetInvalidFileNameChars()));
+                                var matchFiles = Directory.GetFiles(_rutaCarpetaFacturas, $"Factura_{facLimpio}*.pdf")
+                                                          .OrderByDescending(f => File.GetCreationTime(f))
+                                                          .FirstOrDefault();
+                                if (matchFiles != null)
+                                {
+                                    rutaPdf = matchFiles;
+                                }
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(rutaPdf) && File.Exists(rutaPdf))
+                        {
+                            try
+                            {
+                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                {
+                                    FileName = rutaPdf,
+                                    UseShellExecute = true
+                                });
+                            }
+                            catch (Exception exPdf)
+                            {
+                                MessageBox.Show("No se pudo abrir el archivo PDF: " + exPdf.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            }
+                        }
+                        else
+                        {
+                            MessageBox.Show("No se encontró el archivo PDF generado de la factura.", "Atención", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
                     }
                 }
             }

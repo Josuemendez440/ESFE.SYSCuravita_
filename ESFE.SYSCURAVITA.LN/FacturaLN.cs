@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using ESFE.SYSCURAVITA_DAL;
 using ESFE.SYSCURAVITA.EN;
 
@@ -39,8 +39,14 @@ namespace ESFE.SYSCURAVITA.LN
             {
                 Accion = "PAGO_REGISTRADO",
                 Exito = resultado,
-                Mensaje = resultado ? "Factura procesada con éxito." : "Error al guardar la factura en la base de datos."
+                Mensaje = resultado ? "Factura procesada con éxito." : "Error al guardar la factura en la base de datos.",
+                NumeroFactura = dto.NumeroFactura
             };
+        }
+
+        public static RespuestaEnvioCorreoDTO EnviarFacturaPorCorreo(CorreoDTO dto)
+        {
+            return CorreoLN.EnviarFactura(dto);
         }
     }
 }

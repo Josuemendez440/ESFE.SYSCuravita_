@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace ESFE.SYSCURAVITA.EN
@@ -47,5 +47,7 @@ namespace ESFE.SYSCURAVITA.EN
         public string Accion { get; set; } = "PAGO_REGISTRADO";
         public bool Exito { get; set; }
         public string Mensaje { get; set; } = string.Empty;
+        public string NumeroFactura { get; set; } = string.Empty;
+        public string RutaPdf { get; set; } = string.Empty;
     }
 }
